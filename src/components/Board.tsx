@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useOptimistic, useTransition, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
     DndContext, 
     DragOverlay, 
     closestCorners, 
     KeyboardSensor, 
     PointerSensor, 
+    TouchSensor,
     useSensor, 
     useSensors,
     DragEndEvent,
@@ -48,6 +50,9 @@ interface BoardProps {
 }
 
 export function Board({ initialStatuses, initialContexts, initialTasks }: BoardProps) {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    
     // Reason: useOptimistic allows immediate UI updates while Server Actions run in background.
     const [optimisticTasks, setOptimisticTasks] = useOptimistic(
         initialTasks,
@@ -60,16 +65,40 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const [statuses, setStatuses] = useState<Status[]>(initialStatuses);
     const [contexts, setContexts] = useState<Context[]>(initialContexts);
     
-    const [currentView, setCurrentView] = useState<ViewType>('status');
+    // Initialize from URL or default to 'status'
+    const initialView = (searchParams.get('view') as ViewType) || 'status';
+    const [currentView, setCurrentViewState] = useState<ViewType>(initialView);
+    
+    // Sync internal state when URL changes (e.g. back button)
+    useEffect(() => {
+        const viewFromUrl = searchParams.get('view') as ViewType;
+        if (viewFromUrl && (viewFromUrl === 'status' || viewFromUrl === 'context')) {
+            setCurrentViewState(viewFromUrl);
+        }
+    }, [searchParams]);
+
     const [isVertical, setIsVertical] = useState(false);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [isPending, startTransition] = useTransition();
 
+    const setCurrentView = (view: ViewType) => {
+        setCurrentViewState(view);
+        // Shallow routing to update URL without reload
+        router.push(`/?view=${view}`, { scroll: false });
+    };
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 8, // Increased slightly to prevent accidental drags
+            },
+        }),
+        useSensor(TouchSensor, {
+            // Touch specific settings for mobile
+            activationConstraint: {
+                delay: 250, // Press and hold to drag
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor, {

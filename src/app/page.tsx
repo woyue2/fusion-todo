@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Board } from '@/components/Board';
 import { fetchBoard } from './actions';
 
@@ -6,10 +7,12 @@ export default async function Home() {
   const { statuses, contexts, tasks } = await fetchBoard();
 
   return (
-    <Board 
-      initialStatuses={statuses} 
-      initialContexts={contexts} 
-      initialTasks={tasks} 
-    />
+    <Suspense fallback={<div>Loading...</div>}>
+      <Board 
+        initialStatuses={statuses} 
+        initialContexts={contexts} 
+        initialTasks={tasks} 
+      />
+    </Suspense>
   );
 }
