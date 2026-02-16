@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  nextjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount a named volume for persistent storage of the SQLite database
+      # The 'data' directory inside the container will be mapped to the 'nextjs_data' volume
+      - nextjs_data:/app/data
+    restart: always # Always restart the container if it stops
+
+volumes:
+  # Define the named volume for persistent data
+  nextjs_data:

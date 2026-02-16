@@ -4,7 +4,7 @@ import { initialTasks, initialStatuses, initialContexts } from './initialData';
 
 // Reason for better-sqlite3: It's a synchronous, fast, and simple file-based DB, 
 // perfect for a local-first personal project without complex setup.
-const db = new Database('todo.db');
+const db = new Database('./data/todo.db');
 
 // Initialize DB schema
 // Reason: Ensure tables exist on first run.
