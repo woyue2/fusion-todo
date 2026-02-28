@@ -17,7 +17,7 @@ import {
     defaultDropAnimationSideEffects,
     DropAnimation
 } from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { arrayMove, sortableKeyboardCoordinates, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { ViewType, Task, Status, Context } from '@/lib/types';
 import { Column } from './Column';
 import { ViewSwitcher } from './ViewSwitcher';
@@ -30,7 +30,9 @@ import {
     removeTask, 
     addContext, 
     updateColumn, 
-    moveTask 
+    moveTask,
+    reorderStatuses,
+    reorderContexts 
 } from '@/app/actions';
 
 const dropAnimation: DropAnimation = {
@@ -81,6 +83,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [isPending, startTransition] = useTransition();
+    const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
 
     const setCurrentView = (view: ViewType) => {
         setCurrentViewState(view);
@@ -108,6 +111,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
 
     const isStatusView = currentView === 'status';
     const columns = isStatusView ? statuses : contexts;
+    const isColumnDragEnabled = isDesktopDragEnabled && !isVertical; // Reason: Only allow left-right column drag on desktop in horizontal layout.
 
     // Sync state with props when server revalidates
     useEffect(() => {
@@ -117,6 +121,19 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         // so we don't need to manually set it, BUT we need to trigger a state update if we were using local state.
         // Since useOptimistic handles the "base" state (initialTasks), it will update when initialTasks changes.
     }, [initialStatuses, initialContexts, initialTasks]);
+
+    useEffect(() => {
+        // Reason: Use pointer precision to enable column dragging only on desktop-class inputs.
+        const media = window.matchMedia('(pointer: fine)');
+        const update = () => setIsDesktopDragEnabled(media.matches);
+        update();
+        if (media.addEventListener) {
+            media.addEventListener('change', update);
+            return () => media.removeEventListener('change', update);
+        }
+        media.addListener(update);
+        return () => media.removeListener(update);
+    }, []);
 
     // --- Actions ---
 
@@ -190,11 +207,17 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     // --- DnD Handlers ---
 
     const handleDragStart = (event: DragStartEvent) => {
+        // Reason: Only show task overlay for task drags, not column drags.
+        const activeType = event.active.data.current?.type;
+        if (activeType !== 'Task') return;
         const task = optimisticTasks.find(t => t.id === event.active.id);
         if (task) setActiveTask(task);
     };
 
     const handleDragOver = (event: DragOverEvent) => {
+        // Reason: Avoid task drag logic running during column drag.
+        const activeType = event.active.data.current?.type;
+        if (activeType === 'Column') return;
         const { active, over } = event;
         if (!over) return;
 
@@ -247,6 +270,26 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
 
         const activeId = active.id;
         const overId = over.id;
+
+        // Reason: Persist column order separately when a column drag ends.
+        const activeType = active.data.current?.type;
+        if (activeType === 'Column') {
+            const columnIds = columns.map(c => c.id);
+            const oldIndex = columnIds.indexOf(activeId as string);
+            const newIndex = columnIds.indexOf(overId as string);
+            if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+            const nextColumns = arrayMove(columns, oldIndex, newIndex);
+            startTransition(async () => {
+                if (isStatusView) {
+                    setStatuses(nextColumns as Status[]);
+                    await reorderStatuses(nextColumns.map(c => c.id));
+                } else {
+                    setContexts(nextColumns as Context[]);
+                    await reorderContexts(nextColumns.map(c => c.id));
+                }
+            });
+            return;
+        }
         
         const oldIndex = optimisticTasks.findIndex(t => t.id === activeId);
         const newIndex = optimisticTasks.findIndex(t => t.id === overId);
@@ -296,20 +339,24 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                 onDragEnd={handleDragEnd}
             >
                 <div className={`flex-1 flex gap-3 pb-3 items-start ${isVertical ? 'flex-col overflow-y-auto overflow-x-hidden' : 'overflow-x-auto overflow-y-hidden'}`}>
-                    {columns.map(col => (
-                        <Column 
-                            key={col.id}
-                            column={col}
-                            tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
-                            viewType={currentView}
-                            allContexts={contexts}
-                            onTitleChange={handleColumnTitleChange}
-                            onAddTask={handleAddTask}
-                            onEditTask={setEditingTask}
-                            onStatusChange={handleStatusChange}
-                            className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
-                        />
-                    ))}
+                    {/* Reason: Wrap columns in a horizontal SortableContext to support left-right drag on desktop. */}
+                    <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+                        {columns.map(col => (
+                            <Column 
+                                key={col.id}
+                                column={col}
+                                tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
+                                viewType={currentView}
+                                allContexts={contexts}
+                                onTitleChange={handleColumnTitleChange}
+                                onAddTask={handleAddTask}
+                                onEditTask={setEditingTask}
+                                onStatusChange={handleStatusChange}
+                                className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
+                                isColumnDragEnabled={isColumnDragEnabled}
+                            />
+                        ))}
+                    </SortableContext>
                     
                     {!isStatusView && (
                         <button 

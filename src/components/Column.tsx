@@ -1,6 +1,6 @@
 import React from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Task, ViewType, Status, Context } from '@/lib/types';
 import { TaskCard } from './TaskCard';
 
@@ -13,6 +13,7 @@ interface ColumnProps {
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: string) => void;
+  isColumnDragEnabled: boolean;
   className?: string;
 }
 
@@ -25,21 +26,32 @@ export function Column({
     onAddTask, 
     onEditTask, 
     onStatusChange,
+    isColumnDragEnabled,
     className
 }: ColumnProps) {
-  const { setNodeRef } = useDroppable({
+  // Reason: useSortable enables column drag while keeping the column droppable for tasks.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
     data: { type: 'Column', column }
   });
 
   const isStatusView = viewType === 'status';
   const contextColor = !isStatusView && 'color' in column ? (column as Context).color : undefined;
+  const columnStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1
+  }; // Reason: Reflect drag state for column movement feedback.
+  const combinedStyle = {
+    ...columnStyle,
+    ...(contextColor ? { borderTop: `4px solid ${contextColor}` } : { borderTop: '4px solid transparent' })
+  }; // Reason: Preserve existing context border while adding drag transform.
 
   return (
     <div 
         ref={setNodeRef}
+        style={combinedStyle}
         className={`flex flex-col bg-[#ebecf0] rounded-lg p-2.5 box-border ${className || ''}`}
-        style={contextColor ? { borderTop: `4px solid ${contextColor}` } : { borderTop: '4px solid transparent' }}
     >
         {/* Header */}
         <div className="flex justify-between items-center mb-2.5 p-1 shrink-0">
@@ -57,6 +69,16 @@ export function Column({
                     className="font-semibold text-[#172b4d] bg-transparent border-2 border-transparent rounded p-1 text-[0.95rem] w-full cursor-pointer focus:bg-white focus:border-[#0079bf] focus:outline-none focus:cursor-text"
                 />
             </div>
+            {isColumnDragEnabled && (
+                <button
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                    className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-grab active:cursor-grabbing"
+                >
+                    ≡
+                </button>
+            )} {/* Reason: Desktop-only drag handle prevents accidental column drag on mobile. */}
             <span className="text-[#5e6c84] text-xs ml-2 bg-[#091e4214] px-1.5 py-0.5 rounded-full shrink-0">
                 {tasks.length}
             </span>
