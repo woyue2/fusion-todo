@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Task, Status, Context } from '@/lib/types';
 import { CARD_COLORS } from '@/lib/initialData';
 
+// 1. TaskModal 组件：任务编辑/详情弹窗
+// 提供修改任务标题、状态、Context、颜色、标签及删除任务的功能
+
 interface TaskModalProps {
   task: Task;
   statuses: Status[];
@@ -12,6 +15,7 @@ interface TaskModalProps {
 }
 
 export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose }: TaskModalProps) {
+  // 2. 本地状态管理：复制一份任务数据用于编辑，避免直接修改 props
   const [editedTask, setEditedTask] = useState<Task>({ ...task });
 
   const handleSave = () => {
@@ -19,7 +23,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
     onClose();
   };
 
-  // Close on Escape
+  // 3. 监听键盘事件：按 Escape 键关闭弹窗
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -29,16 +33,18 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
   }, [onClose]);
 
   return (
+    // 4. 遮罩层 (Backdrop)
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 animate-in fade-in duration-200">
+      {/* 5. 弹窗主体 */}
       <div className="bg-white w-[450px] max-w-[90%] rounded-lg shadow-2xl p-6 flex flex-col gap-5 animate-in zoom-in-95 duration-200">
         
-        {/* Header */}
+        {/* Header: 标题与关闭按钮 */}
         <div className="flex justify-between items-center">
             <span className="text-xl font-bold text-[#172b4d]">Edit Task</span>
             <button onClick={onClose} className="text-2xl text-[#999] hover:text-[#172b4d] bg-transparent border-none cursor-pointer">×</button>
         </div>
 
-        {/* Title */}
+        {/* 6. 任务描述编辑框 */}
         <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-[#5e6c84] tracking-wide">TASK DESCRIPTION</label>
             <textarea 
@@ -49,7 +55,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
             />
         </div>
 
-        {/* Row: Status & Context */}
+        {/* 7. 状态与上下文选择器 */}
         <div className="flex gap-4">
             <div className="flex-1 flex flex-col gap-2">
                 <label className="text-sm font-semibold text-[#5e6c84] tracking-wide">STATUS</label>
@@ -73,7 +79,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
             </div>
         </div>
 
-        {/* Colors */}
+        {/* 8. 优先级/颜色选择器 */}
         <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-[#5e6c84] tracking-wide">PRIORITY / COLOR</label>
             <div className="flex gap-3 items-center">
@@ -89,7 +95,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
             </div>
         </div>
 
-        {/* Tags */}
+        {/* 9. 标签输入框 */}
         <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-[#5e6c84] tracking-wide">TAGS</label>
             <input 
@@ -101,7 +107,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
             />
         </div>
 
-        {/* Actions */}
+        {/* 10. 底部操作按钮：删除、取消、保存 */}
         <div className="flex justify-end gap-3 mt-2">
             <button 
                 onClick={() => onDelete(task.id)}

@@ -3,7 +3,10 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, Context, ViewType } from '@/lib/types';
 
-// Helper to generate color from string (for tags)
+// 1. TaskCard 组件：看板中单个任务卡片的展示
+// 支持拖拽、点击编辑，并根据状态和类型显示不同样式
+
+// 辅助函数：根据字符串生成颜色（用于标签）
 const stringToColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -22,6 +25,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: TaskCardProps) {
+  // 2. 使用 useSortable 钩子，使任务卡片可被拖拽
   const {
     attributes,
     listeners,
@@ -34,34 +38,34 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
     data: { type: 'Task', task } 
   });
 
+  // 3. 计算拖拽时的样式（位移、透明度等）
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : 1, // 拖拽时半透明
     backgroundColor: task.color || '#ffffff',
   };
 
   const isStatusView = viewType === 'status';
   
-  // Status Colors (Left Border)
-  // Reason: Include When Free color for the new status column.
+  // 4. 定义状态颜色映射（用于卡片左侧边框）
   const statusColors: Record<string, string> = {
     todo: '#dfe1e6',
     doing: '#0079bf',
     done: '#61bd4f',
-    'when-free': '#9e9e9e',
+    'when-free': '#9e9e9e', // 新增 When Free 状态颜色
   };
   const statusColor = statusColors[task.status] || '#dfe1e6';
   
-  // Context Info
+  // 5. 获取 Context 信息（用于显示 Context 颜色条）
   const contextObj = contexts.find(c => c.id === task.context);
   const contextColor = contextObj?.color;
 
-  // Done style
+  // 6. 已完成任务的样式（删除线）
   const isDone = task.status === 'done';
   const titleStyle = isDone ? { textDecoration: 'line-through', color: '#888' } : {};
   
-  // Border style
+  // 7. 组合边框样式
   const borderStyle: React.CSSProperties = {
       borderLeftWidth: '4px',
       borderLeftStyle: 'solid',
@@ -73,12 +77,12 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
     <div
       ref={setNodeRef}
       style={{ ...style, ...borderStyle }}
-      {...attributes}
-      {...listeners}
-      onClick={() => onEdit(task)}
+      {...attributes} // 8. 绑定拖拽属性
+      {...listeners}  // 9. 绑定拖拽事件监听
+      onClick={() => onEdit(task)} // 点击编辑任务
       className="task-card relative p-2.5 rounded-md shadow-sm cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition-all select-none bg-white mb-2"
     >
-      {/* Context Color Stripe (Status View Only) */}
+      {/* 10. 如果是 Status 视图，显示顶部 Context 颜色条，方便区分归属 */}
       {isStatusView && contextColor && (
         <div 
           className="absolute top-0 left-0 right-0 h-1 rounded-t-sm" 
@@ -91,7 +95,7 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
           className="text-[0.95rem] text-[#172b4d] font-medium leading-snug break-words"
           style={{ 
             ...titleStyle, 
-            whiteSpace: 'pre-line' // Reason: Preserve user-entered newlines from textarea in display without changing data layer.
+            whiteSpace: 'pre-line' // 保留用户输入的换行符
           }}
         >
           {task.title}
