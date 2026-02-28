@@ -329,6 +329,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         });
         setEditingTask(null);
     };
+    
 
     const handleMoveAbove = (columnId: string) => {
         const anchorId = anchorById.get(columnId);
@@ -340,7 +341,10 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                 c.id === columnId ? { ...c, belowOf: null } : c
             );
             startTransition(async () => {
-                if (isStatusView) {
+                if (isDateView) {
+                    setOptimisticDateColumns(updatedColumns as DateColumn[]);
+                    await reorderDateColumns(updatedColumns as DateColumn[]);
+                } else if (isStatusView) {
                     setOptimisticStatuses(updatedColumns as Status[]);
                     await reorderStatuses(updatedColumns.map(c => c.id));
                 } else {
@@ -364,7 +368,10 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             c.id === columnId ? { ...c, belowOf: leftAnchorBelowOf } : c
         ); // Reason: Place current column above left anchor by sharing its parent.
         startTransition(async () => {
-            if (isStatusView) {
+            if (isDateView) {
+                setOptimisticDateColumns(updatedColumns2 as DateColumn[]);
+                await reorderDateColumns(updatedColumns2 as DateColumn[]);
+            } else if (isStatusView) {
                 setOptimisticStatuses(updatedColumns2 as Status[]);
                 await reorderStatuses(updatedColumns2.map(c => c.id));
             } else {
@@ -389,7 +396,10 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             c.id === columnId ? { ...c, belowOf: leftAnchorId } : c
         ); // Reason: Place current column directly below left anchor.
         startTransition(async () => {
-            if (isStatusView) {
+            if (isDateView) {
+                setOptimisticDateColumns(updatedColumns as DateColumn[]);
+                await reorderDateColumns(updatedColumns as DateColumn[]);
+            } else if (isStatusView) {
                 setOptimisticStatuses(updatedColumns as Status[]);
                 await reorderStatuses(updatedColumns.map(c => c.id));
             } else {
@@ -414,7 +424,10 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             c.id === columnId ? { ...c, belowOf: null } : c
         ); // Reason: Keep anchor in the first row when moving horizontally.
         startTransition(async () => {
-            if (isStatusView) {
+            if (isDateView) {
+                setOptimisticDateColumns(updatedColumns as DateColumn[]);
+                await reorderDateColumns(updatedColumns as DateColumn[]);
+            } else if (isStatusView) {
                 setOptimisticStatuses(updatedColumns as Status[]);
                 await reorderStatuses(updatedColumns.map(c => c.id));
             } else {
@@ -440,7 +453,10 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             c.id === columnId ? { ...c, belowOf: null } : c
         ); // Reason: Keep anchor in the first row when moving horizontally.
         startTransition(async () => {
-            if (isStatusView) {
+            if (isDateView) {
+                setOptimisticDateColumns(updatedColumns as DateColumn[]);
+                await reorderDateColumns(updatedColumns as DateColumn[]);
+            } else if (isStatusView) {
                 setOptimisticStatuses(updatedColumns as Status[]);
                 await reorderStatuses(updatedColumns.map(c => c.id));
             } else {
@@ -539,7 +555,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             startTransition(async () => {
                 if (isDateView) {
                     setOptimisticDateColumns(newColumns as DateColumn[]);
-                    await reorderDateColumns(newColumns.map(c => c.id));
+                    await reorderDateColumns(newColumns as DateColumn[]);
                 } else if (isStatusView) {
                     setOptimisticStatuses(newColumns as Status[]);
                     await reorderStatuses(newColumns.map(c => c.id));

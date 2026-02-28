@@ -15,7 +15,7 @@ import {
     reorderContexts as dbReorderContexts,
     reorderDateColumns as dbReorderDateColumns
 } from '@/lib/db';
-import { Task, Context } from '@/lib/types';
+import { Task, Context, DateColumn } from '@/lib/types';
 
 // Reason: Server Actions provide a clean way to handle form submissions and data mutations directly from React components.
 // They automatically handle serialization and can revalidate the cache to update the UI.
@@ -115,7 +115,7 @@ export async function reorderContexts(contextIds: string[]) {
     revalidatePath('/');
 }
 
-export async function reorderDateColumns(dateIds: string[]) {
-    dbReorderDateColumns(dateIds);
+export async function reorderDateColumns(dateColumns: DateColumn[]) {
+    dbReorderDateColumns(dateColumns);
     revalidatePath('/');
 }

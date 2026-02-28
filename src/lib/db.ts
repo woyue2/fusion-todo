@@ -226,15 +226,28 @@ export function updateColumnBelowOf(id: string, belowOf: string | null, type: 's
     }
 }
 
-export function reorderDateColumns(dateIds: string[]) {
-    const update = db.prepare('UPDATE date_columns SET "order" = ? WHERE id = ?');
-    const updateTransaction = db.transaction((ids: string[]) => {
-        ids.forEach((id, index) => {
-            ensureDateColumn(id);
-            update.run(index, id);
+export function reorderDateColumns(dateColumns: DateColumn[]) {
+    const upsert = db.prepare(`
+        INSERT INTO date_columns (id, title, "order", collapsed, belowOf)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          "order" = excluded."order",
+          collapsed = excluded.collapsed,
+          belowOf = excluded.belowOf
+    `);
+    const upsertTransaction = db.transaction((columns: DateColumn[]) => {
+        columns.forEach((column, index) => {
+            upsert.run(
+                column.id,
+                column.title,
+                index,
+                column.collapsed ? 1 : 0,
+                column.belowOf ?? null
+            );
         });
     });
-    updateTransaction(dateIds);
+    upsertTransaction(dateColumns);
 }
 
 function ensureDateColumn(id: string) {
