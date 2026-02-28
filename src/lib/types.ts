@@ -4,6 +4,7 @@ export interface Status {
   id: string;
   title: string;
   collapsed: boolean; // Reason: Persisted column collapse state for status view.
+  belowOf?: string | null;
 }
 
 export interface Context {
@@ -11,6 +12,7 @@ export interface Context {
   title: string;
   color: string;
   collapsed: boolean; // Reason: Persisted column collapse state for context view.
+  belowOf?: string | null;
 }
 
 export interface Task {

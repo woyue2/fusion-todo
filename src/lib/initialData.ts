@@ -2,16 +2,16 @@ import { Task, Status, Context } from './types';
 
 export const initialStatuses: Status[] = [
   // Reason: Seed columns as expanded by default.
-  { id: 'todo', title: 'To Do', collapsed: false },
-  { id: 'doing', title: 'In Progress', collapsed: false },
-  { id: 'done', title: 'Done', collapsed: false }
+  { id: 'todo', title: 'To Do', collapsed: false, belowOf: null },
+  { id: 'doing', title: 'In Progress', collapsed: false, belowOf: null },
+  { id: 'done', title: 'Done', collapsed: false, belowOf: null }
 ];
 
 export const initialContexts: Context[] = [
   // Reason: Seed columns as expanded by default.
-  { id: 'c1', title: 'Urgent', color: '#ff5252', collapsed: false },     // Red
-  { id: 'c2', title: 'Deep Work', color: '#448aff', collapsed: false },  // Blue
-  { id: 'c3', title: 'Routine', color: '#69f0ae', collapsed: false }     // Green
+  { id: 'c1', title: 'Urgent', color: '#ff5252', collapsed: false, belowOf: null },     // Red
+  { id: 'c2', title: 'Deep Work', color: '#448aff', collapsed: false, belowOf: null },  // Blue
+  { id: 'c3', title: 'Routine', color: '#69f0ae', collapsed: false, belowOf: null }     // Green
 ];
 
 export const initialTasks: Task[] = [

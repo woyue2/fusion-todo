@@ -9,6 +9,7 @@ import {
     createContext as dbCreateContext,
     updateColumnTitle as dbUpdateColumnTitle,
     updateColumnCollapsed as dbUpdateColumnCollapsed,
+    updateColumnBelowOf as dbUpdateColumnBelowOf,
     reorderTasks as dbReorderTasks,
     reorderStatuses as dbReorderStatuses,
     reorderContexts as dbReorderContexts
@@ -52,7 +53,8 @@ export async function addContext() {
         id: `c${Date.now()}`,
         title: 'New List',
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
-        collapsed: false // Reason: New lists start expanded.
+        collapsed: false, // Reason: New lists start expanded.
+        belowOf: null
     };
     dbCreateContext(newContext);
     revalidatePath('/');
@@ -67,6 +69,11 @@ export async function updateColumn(id: string, title: string, type: 'status' | '
 export async function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context') {
     // Reason: Persist column collapse state changes from the client.
     dbUpdateColumnCollapsed(id, collapsed, type);
+    revalidatePath('/');
+}
+
+export async function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context') {
+    dbUpdateColumnBelowOf(id, belowOf, type);
     revalidatePath('/');
 }
 

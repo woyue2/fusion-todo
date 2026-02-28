@@ -16,14 +16,16 @@ db.exec(`
     id TEXT PRIMARY KEY,
     title TEXT,
     "order" INTEGER DEFAULT 0,
-    collapsed INTEGER DEFAULT 0
+    collapsed INTEGER DEFAULT 0,
+    belowOf TEXT
   );
   CREATE TABLE IF NOT EXISTS contexts (
     id TEXT PRIMARY KEY,
     title TEXT,
     color TEXT,
     "order" INTEGER DEFAULT 0,
-    collapsed INTEGER DEFAULT 0
+    collapsed INTEGER DEFAULT 0,
+    belowOf TEXT
   );
   CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
@@ -62,15 +64,25 @@ const ensureCollapsedColumn = (tableName: 'statuses' | 'contexts') => {
 ensureCollapsedColumn('statuses');
 ensureCollapsedColumn('contexts');
 
+const ensureBelowOfColumn = (tableName: 'statuses' | 'contexts') => {
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
+    const hasBelowOf = columns.some(c => c.name === 'belowOf');
+    if (!hasBelowOf) {
+        db.exec(`ALTER TABLE ${tableName} ADD COLUMN belowOf TEXT`);
+    }
+};
+ensureBelowOfColumn('statuses');
+ensureBelowOfColumn('contexts');
+
 // Seed initial data if empty
 // Reason: To provide a ready-to-use state for the user immediately.
 const taskCount = db.prepare('SELECT count(*) as count FROM tasks').get() as { count: number };
 if (taskCount.count === 0) {
-    const insertStatus = db.prepare('INSERT INTO statuses (id, title, "order", collapsed) VALUES (?, ?, ?, ?)');
-    initialStatuses.forEach((s, index) => insertStatus.run(s.id, s.title, index, s.collapsed ? 1 : 0)); // Reason: Seed status order and collapse state.
+    const insertStatus = db.prepare('INSERT INTO statuses (id, title, "order", collapsed, belowOf) VALUES (?, ?, ?, ?, ?)');
+    initialStatuses.forEach((s, index) => insertStatus.run(s.id, s.title, index, s.collapsed ? 1 : 0, s.belowOf ?? null)); // Reason: Seed status order and collapse state.
 
-    const insertContext = db.prepare('INSERT INTO contexts (id, title, color, "order", collapsed) VALUES (?, ?, ?, ?, ?)');
-    initialContexts.forEach((c, index) => insertContext.run(c.id, c.title, c.color, index, c.collapsed ? 1 : 0)); // Reason: Seed context order and collapse state.
+    const insertContext = db.prepare('INSERT INTO contexts (id, title, color, "order", collapsed, belowOf) VALUES (?, ?, ?, ?, ?, ?)');
+    initialContexts.forEach((c, index) => insertContext.run(c.id, c.title, c.color, index, c.collapsed ? 1 : 0, c.belowOf ?? null)); // Reason: Seed context order and collapse state.
 
     const insertTask = db.prepare('INSERT INTO tasks (id, title, status, context, tags, color, "order") VALUES (?, ?, ?, ?, ?, ?, ?)');
     initialTasks.forEach((t, index) => {
@@ -82,8 +94,8 @@ if (taskCount.count === 0) {
 
 export function getBoardData() {
     // Reason: Fetch all necessary data in one go to render the board.
-    type StatusRow = { id: string; title: string; order: number; collapsed: number | null }; // Reason: Align DB row shape for status columns.
-    type ContextRow = { id: string; title: string; color: string; order: number; collapsed: number | null }; // Reason: Align DB row shape for context columns.
+    type StatusRow = { id: string; title: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for status columns.
+    type ContextRow = { id: string; title: string; color: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for context columns.
     type TaskRow = { id: string; title: string; status: string; context: string; tags: string; color: string | null; order: number }; // Reason: Align DB row shape for tasks.
     const statusesRaw = db.prepare('SELECT * FROM statuses ORDER BY "order" ASC').all() as StatusRow[]; // Reason: Respect persisted column order.
     const contextsRaw = db.prepare('SELECT * FROM contexts ORDER BY "order" ASC').all() as ContextRow[]; // Reason: Respect persisted column order.
@@ -91,11 +103,13 @@ export function getBoardData() {
 
     const statuses: Status[] = statusesRaw.map(s => ({
         ...s,
-        collapsed: Boolean(s.collapsed)
+        collapsed: Boolean(s.collapsed),
+        belowOf: s.belowOf ?? null
     })); // Reason: Normalize SQLite integer to boolean for SSR-consistent rendering.
     const contexts: Context[] = contextsRaw.map(c => ({
         ...c,
-        collapsed: Boolean(c.collapsed)
+        collapsed: Boolean(c.collapsed),
+        belowOf: c.belowOf ?? null
     })); // Reason: Normalize SQLite integer to boolean for SSR-consistent rendering.
     
     const tasks: Task[] = tasksRaw.map(t => ({
@@ -130,7 +144,7 @@ export function createContext(context: Context) {
     // Reason: New contexts should be appended to the end of the current column order.
     const maxOrder = db.prepare('SELECT MAX("order") as max FROM contexts').get() as { max: number };
     const newOrder = (maxOrder.max || 0) + 1;
-    db.prepare('INSERT INTO contexts (id, title, color, "order", collapsed) VALUES (?, ?, ?, ?, ?)').run(context.id, context.title, context.color, newOrder, context.collapsed ? 1 : 0);
+    db.prepare('INSERT INTO contexts (id, title, color, "order", collapsed, belowOf) VALUES (?, ?, ?, ?, ?, ?)').run(context.id, context.title, context.color, newOrder, context.collapsed ? 1 : 0, context.belowOf ?? null);
     return context;
 }
 
@@ -149,6 +163,14 @@ export function updateColumnCollapsed(id: string, collapsed: boolean, type: 'sta
         db.prepare('UPDATE statuses SET collapsed = ? WHERE id = ?').run(value, id);
     } else {
         db.prepare('UPDATE contexts SET collapsed = ? WHERE id = ?').run(value, id);
+    }
+}
+
+export function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context') {
+    if (type === 'status') {
+        db.prepare('UPDATE statuses SET belowOf = ? WHERE id = ?').run(belowOf, id);
+    } else {
+        db.prepare('UPDATE contexts SET belowOf = ? WHERE id = ?').run(belowOf, id);
     }
 }
 
