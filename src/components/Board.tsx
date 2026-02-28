@@ -477,7 +477,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     };
 
     return (
-        <div className="flex flex-col h-screen p-4 box-border bg-[#f4f5f7]">
+        <div className="flex flex-col min-h-screen p-4 box-border bg-[#f4f5f7]"> {/* Reason: 允许页面高度超过视口，从而启用页面级垂直滚动 */}
             <header className="flex justify-between items-center mb-4 shrink-0">
                  <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold text-[#172b4d]">Polished Fusion</h1>
@@ -497,7 +497,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
-                <div className={`flex-1 flex gap-3 pb-3 items-start ${isVertical ? 'flex-col overflow-y-auto overflow-x-hidden' : 'overflow-x-auto overflow-y-hidden'}`}>
+                <div className={`flex-1 flex gap-3 pb-3 items-start ${isVertical ? 'flex-col overflow-y-auto overflow-x-hidden' : 'overflow-x-auto'}`}> {/* Reason: 保留横向滚动；移除 overflow-y-hidden 让纵向溢出由页面承载 */}
                     {/* Reason: Wrap columns in a horizontal SortableContext to support left-right drag on desktop. */}
                     <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
                         {stacks.map(stack => {

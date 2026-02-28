@@ -19,5 +19,5 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   margin: 0;
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto; /* Reason: 恢复页面级垂直滚动以显示右侧滚动条；保留横向滚动在主容器 */
 }
