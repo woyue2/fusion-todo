@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useOptimistic, useTransition, useEffect } from 'react';
+import React, { useState, useOptimistic, useTransition, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
@@ -31,6 +31,7 @@ import {
     addContext, 
     updateColumn, 
     updateColumnCollapsed,
+    updateColumnBelowOf,
     moveTask,
     reorderStatuses,
     reorderContexts 
@@ -78,6 +79,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [, startTransition] = useTransition();
     const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
+    const tempTaskIdRef = useRef(0); // Reason: Generate stable temp IDs without impure Date.now during render.
 
     const setCurrentView = (view: ViewType) => {
         // Shallow routing to update URL without reload
@@ -105,6 +107,35 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const isStatusView = currentView === 'status';
     const columns = isStatusView ? optimisticStatuses : optimisticContexts;
     const isColumnDragEnabled = isDesktopDragEnabled && !isVertical; // Reason: Only allow left-right column drag on desktop in horizontal layout.
+    const columnOrderIndex = new Map(columns.map((c, index) => [c.id, index]));
+    const columnsById = new Map(columns.map(c => [c.id, c]));
+    const childrenByParent = new Map<string, (Status | Context)[]>();
+    columns.forEach(c => {
+        if (c.belowOf && columnsById.has(c.belowOf)) {
+            const list = childrenByParent.get(c.belowOf) || [];
+            list.push(c);
+            childrenByParent.set(c.belowOf, list);
+        }
+    });
+    const anchorColumns = columns.filter(c => !c.belowOf || !columnsById.has(c.belowOf)); // Reason: Define anchors as columns not placed under another column.
+    const anchorOrder = anchorColumns.map(c => c.id); // Reason: Preserve anchor ordering for left/right operations.
+    const stacks = anchorColumns.map(anchor => {
+        const result: (Status | Context)[] = [];
+        const visit = (node: Status | Context) => {
+            result.push(node);
+            const children = childrenByParent.get(node.id) || [];
+            children.sort((a, b) => (columnOrderIndex.get(a.id) ?? 0) - (columnOrderIndex.get(b.id) ?? 0));
+            children.forEach(child => visit(child));
+        };
+        visit(anchor);
+        return result;
+    });
+    const anchorById = new Map<string, string>(); // Reason: Map any column to its anchor for semantic button actions.
+    stacks.forEach(stack => {
+        const anchorId = stack[0]?.id;
+        if (!anchorId) return;
+        stack.forEach(col => anchorById.set(col.id, anchorId));
+    });
 
     useEffect(() => {
         // Reason: Use pointer precision to enable column dragging only on desktop-class inputs.
@@ -123,7 +154,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
 
     const handleAddTask = async (columnId: string) => {
         // Optimistic update
-        const tempId = `t-temp-${Date.now()}`;
+        const tempId = `t-temp-${tempTaskIdRef.current++}`; // Reason: Use stable counter for lint purity rule compliance.
         const newTask: Task = {
             id: tempId,
             title: 'New Task',
@@ -149,7 +180,8 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             id: `c-temp-${Date.now()}`,
             title: 'New List',
             color: '#cccccc',
-            collapsed: false // Reason: New lists start expanded in UI.
+            collapsed: false, // Reason: New lists start expanded in UI.
+            belowOf: null
         };
         setOptimisticContexts([...optimisticContexts, tempContext]);
         await addContext();
@@ -197,6 +229,127 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             await removeTask(taskId);
         });
         setEditingTask(null);
+    };
+
+    const handleMoveAbove = (columnId: string) => {
+        const anchorId = anchorById.get(columnId);
+        if (!anchorId) return;
+        const isStackChild = !!(columnsById.get(columnId)?.belowOf);
+        if (isStackChild) {
+            // Reason: 当列是堆叠中的子项时，↥ 直接作为“解除”操作（返回到第一行）。
+            const updatedColumns = columns.map(c =>
+                c.id === columnId ? { ...c, belowOf: null } : c
+            );
+            startTransition(async () => {
+                if (isStatusView) {
+                    setOptimisticStatuses(updatedColumns as Status[]);
+                    await reorderStatuses(updatedColumns.map(c => c.id));
+                } else {
+                    setOptimisticContexts(updatedColumns as Context[]);
+                    await reorderContexts(updatedColumns.map(c => c.id));
+                }
+                await updateColumnBelowOf(columnId, null, currentView);
+            });
+            return;
+        }
+        const anchorIndex = anchorOrder.indexOf(anchorId);
+        if (anchorIndex <= 0) return;
+        const leftAnchorId = anchorOrder[anchorIndex - 1];
+        // Uncertain: "左侧邻列" 对于堆叠列使用其所属 anchor 的左邻，如需改为其他语义请调整。
+        const currentIndex = columns.findIndex(c => c.id === columnId);
+        const leftIndex = columns.findIndex(c => c.id === leftAnchorId);
+        if (currentIndex === -1 || leftIndex === -1) return;
+        const nextColumns = arrayMove(columns, currentIndex, leftIndex);
+        const leftAnchorBelowOf = columnsById.get(leftAnchorId)?.belowOf ?? null;
+        const updatedColumns2 = nextColumns.map(c =>
+            c.id === columnId ? { ...c, belowOf: leftAnchorBelowOf } : c
+        ); // Reason: Place current column above left anchor by sharing its parent.
+        startTransition(async () => {
+            if (isStatusView) {
+                setOptimisticStatuses(updatedColumns2 as Status[]);
+                await reorderStatuses(updatedColumns2.map(c => c.id));
+            } else {
+                setOptimisticContexts(updatedColumns2 as Context[]);
+                await reorderContexts(updatedColumns2.map(c => c.id));
+            }
+            await updateColumnBelowOf(columnId, leftAnchorBelowOf, currentView);
+        });
+    };
+
+    const handleMoveBelow = (columnId: string) => {
+        const anchorId = anchorById.get(columnId);
+        if (!anchorId) return;
+        const anchorIndex = anchorOrder.indexOf(anchorId);
+        if (anchorIndex <= 0) return;
+        const leftAnchorId = anchorOrder[anchorIndex - 1];
+        const currentIndex = columns.findIndex(c => c.id === columnId);
+        const leftIndex = columns.findIndex(c => c.id === leftAnchorId);
+        if (currentIndex === -1 || leftIndex === -1) return;
+        const nextColumns = arrayMove(columns, currentIndex, leftIndex + 1);
+        const updatedColumns = nextColumns.map(c =>
+            c.id === columnId ? { ...c, belowOf: leftAnchorId } : c
+        ); // Reason: Place current column directly below left anchor.
+        startTransition(async () => {
+            if (isStatusView) {
+                setOptimisticStatuses(updatedColumns as Status[]);
+                await reorderStatuses(updatedColumns.map(c => c.id));
+            } else {
+                setOptimisticContexts(updatedColumns as Context[]);
+                await reorderContexts(updatedColumns.map(c => c.id));
+            }
+            await updateColumnBelowOf(columnId, leftAnchorId, currentView);
+        });
+    };
+
+    const handleMoveLeft = (columnId: string) => {
+        const anchorId = anchorById.get(columnId);
+        if (!anchorId || anchorId !== columnId) return;
+        const anchorIndex = anchorOrder.indexOf(anchorId);
+        if (anchorIndex <= 0) return;
+        const leftAnchorId = anchorOrder[anchorIndex - 1];
+        const currentIndex = columns.findIndex(c => c.id === columnId);
+        const leftIndex = columns.findIndex(c => c.id === leftAnchorId);
+        if (currentIndex === -1 || leftIndex === -1) return;
+        const nextColumns = arrayMove(columns, currentIndex, leftIndex);
+        const updatedColumns = nextColumns.map(c =>
+            c.id === columnId ? { ...c, belowOf: null } : c
+        ); // Reason: Keep anchor in the first row when moving horizontally.
+        startTransition(async () => {
+            if (isStatusView) {
+                setOptimisticStatuses(updatedColumns as Status[]);
+                await reorderStatuses(updatedColumns.map(c => c.id));
+            } else {
+                setOptimisticContexts(updatedColumns as Context[]);
+                await reorderContexts(updatedColumns.map(c => c.id));
+            }
+            await updateColumnBelowOf(columnId, null, currentView);
+        });
+    };
+
+    const handleMoveRight = (columnId: string) => {
+        const anchorId = anchorById.get(columnId);
+        if (!anchorId || anchorId !== columnId) return;
+        const anchorIndex = anchorOrder.indexOf(anchorId);
+        if (anchorIndex === -1 || anchorIndex >= anchorOrder.length - 1) return;
+        const rightAnchorId = anchorOrder[anchorIndex + 1];
+        const currentIndex = columns.findIndex(c => c.id === columnId);
+        const rightIndex = columns.findIndex(c => c.id === rightAnchorId);
+        if (currentIndex === -1 || rightIndex === -1) return;
+        const targetIndex = currentIndex < rightIndex ? rightIndex : rightIndex + 1;
+        const nextColumns = arrayMove(columns, currentIndex, targetIndex);
+        const updatedColumns = nextColumns.map(c =>
+            c.id === columnId ? { ...c, belowOf: null } : c
+        ); // Reason: Keep anchor in the first row when moving horizontally.
+        startTransition(async () => {
+            if (isStatusView) {
+                setOptimisticStatuses(updatedColumns as Status[]);
+                await reorderStatuses(updatedColumns.map(c => c.id));
+            } else {
+                setOptimisticContexts(updatedColumns as Context[]);
+                await reorderContexts(updatedColumns.map(c => c.id));
+            }
+            await updateColumnBelowOf(columnId, null, currentView);
+        });
     };
 
     // --- DnD Handlers ---
@@ -266,22 +419,33 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         const activeId = active.id;
         const overId = over.id;
 
-        // Reason: Persist column order separately when a column drag ends.
         const activeType = active.data.current?.type;
         if (activeType === 'Column') {
             const columnIds = columns.map(c => c.id);
             const oldIndex = columnIds.indexOf(activeId as string);
             const newIndex = columnIds.indexOf(overId as string);
-            if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-            const nextColumns = arrayMove(columns, oldIndex, newIndex);
+            if (oldIndex === -1 || newIndex === -1) return;
+            const activeRect = active.rect.current?.translated ?? active.rect.current?.initial;
+            const overRect = over.rect;
+            const shouldPlaceBelow = activeRect && overRect
+                ? activeRect.top + activeRect.height / 2 > overRect.top + overRect.height * 0.55
+                : false;
+            const targetIndex = shouldPlaceBelow
+                ? (oldIndex < newIndex ? newIndex : newIndex + 1)
+                : newIndex;
+            const movedColumns = oldIndex !== targetIndex ? arrayMove(columns, oldIndex, targetIndex) : columns;
+            const updatedColumns = movedColumns.map(c =>
+                c.id === activeId ? { ...c, belowOf: shouldPlaceBelow ? (overId as string) : null } : c
+            );
             startTransition(async () => {
                 if (isStatusView) {
-                    setOptimisticStatuses(nextColumns as Status[]);
-                    await reorderStatuses(nextColumns.map(c => c.id));
+                    setOptimisticStatuses(updatedColumns as Status[]);
+                    await reorderStatuses(updatedColumns.map(c => c.id));
                 } else {
-                    setOptimisticContexts(nextColumns as Context[]);
-                    await reorderContexts(nextColumns.map(c => c.id));
+                    setOptimisticContexts(updatedColumns as Context[]);
+                    await reorderContexts(updatedColumns.map(c => c.id));
                 }
+                await updateColumnBelowOf(activeId as string, shouldPlaceBelow ? (overId as string) : null, currentView);
             });
             return;
         }
@@ -336,22 +500,44 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                 <div className={`flex-1 flex gap-3 pb-3 items-start ${isVertical ? 'flex-col overflow-y-auto overflow-x-hidden' : 'overflow-x-auto overflow-y-hidden'}`}>
                     {/* Reason: Wrap columns in a horizontal SortableContext to support left-right drag on desktop. */}
                     <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
-                        {columns.map(col => (
-                            <Column 
-                                key={col.id}
-                                column={col}
-                                tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
-                                viewType={currentView}
-                                allContexts={optimisticContexts}
-                                onTitleChange={handleColumnTitleChange}
-                                onToggleCollapsed={handleColumnCollapsedChange}
-                                onAddTask={handleAddTask}
-                                onEditTask={setEditingTask}
-                                onStatusChange={handleStatusChange}
-                                className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
-                                isColumnDragEnabled={isColumnDragEnabled}
-                            />
-                        ))}
+                        {stacks.map(stack => {
+                            const anchorId = stack[0].id;
+                            const anchorIndex = anchorOrder.indexOf(anchorId);
+                            const hasLeftAnchor = anchorIndex > 0;
+                            const hasRightAnchor = anchorIndex >= 0 && anchorIndex < anchorOrder.length - 1;
+                            return (
+                            <div key={anchorId} className="flex flex-col gap-3">
+                                {stack.map(col => {
+                                    const isAnchor = col.id === anchorId;
+                                    const isStackChild = !!(columnsById.get(col.id)?.belowOf); // Reason: Child rows should allow direct "解除" via ↥
+                                    return (
+                                    <Column 
+                                        key={col.id}
+                                        column={col}
+                                        tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
+                                        viewType={currentView}
+                                        allContexts={optimisticContexts}
+                                        onTitleChange={handleColumnTitleChange}
+                                        onToggleCollapsed={handleColumnCollapsedChange}
+                                        onAddTask={handleAddTask}
+                                        onEditTask={setEditingTask}
+                                        onStatusChange={handleStatusChange}
+                                        onMoveAbove={handleMoveAbove} // Reason: Button action for placing above left neighbor或直接解除（当在堆叠中）。
+                                        onMoveBelow={handleMoveBelow} // Reason: Button action for placing below left neighbor.
+                                        onMoveLeft={handleMoveLeft} // Reason: Button action for horizontal left shift.
+                                        onMoveRight={handleMoveRight} // Reason: Button action for horizontal right shift.
+                                        canMoveAbove={hasLeftAnchor || isStackChild} // Reason: 当是堆叠子列时允许直接“解除”（无左邻也可用）。
+                                        canMoveBelow={hasLeftAnchor} // Reason: Disable when no left anchor exists.
+                                        canMoveLeft={isAnchor && hasLeftAnchor} // Reason: Only anchors can move horizontally.
+                                        canMoveRight={isAnchor && hasRightAnchor} // Reason: Only anchors can move horizontally.
+                                        className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
+                                        isColumnDragEnabled={isColumnDragEnabled}
+                                    />
+                                );
+                                })}
+                            </div>
+                        );
+                        })}
                     </SortableContext>
                     
                     {!isStatusView && (
