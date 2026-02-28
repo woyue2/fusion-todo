@@ -3,12 +3,14 @@ export type ViewType = 'status' | 'context';
 export interface Status {
   id: string;
   title: string;
+  collapsed: boolean; // Reason: Persisted column collapse state for status view.
 }
 
 export interface Context {
   id: string;
   title: string;
   color: string;
+  collapsed: boolean; // Reason: Persisted column collapse state for context view.
 }
 
 export interface Task {

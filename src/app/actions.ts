@@ -8,6 +8,7 @@ import {
     deleteTask as dbDeleteTask,
     createContext as dbCreateContext,
     updateColumnTitle as dbUpdateColumnTitle,
+    updateColumnCollapsed as dbUpdateColumnCollapsed,
     reorderTasks as dbReorderTasks,
     reorderStatuses as dbReorderStatuses,
     reorderContexts as dbReorderContexts
@@ -50,7 +51,8 @@ export async function addContext() {
     const newContext: Context = {
         id: `c${Date.now()}`,
         title: 'New List',
-        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        collapsed: false // Reason: New lists start expanded.
     };
     dbCreateContext(newContext);
     revalidatePath('/');
@@ -59,6 +61,12 @@ export async function addContext() {
 
 export async function updateColumn(id: string, title: string, type: 'status' | 'context') {
     dbUpdateColumnTitle(id, title, type);
+    revalidatePath('/');
+}
+
+export async function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context') {
+    // Reason: Persist column collapse state changes from the client.
+    dbUpdateColumnCollapsed(id, collapsed, type);
     revalidatePath('/');
 }
 
