@@ -30,6 +30,7 @@ import {
     removeTask, 
     addContext, 
     updateColumn, 
+    updateColumnCollapsed,
     moveTask,
     reorderStatuses,
     reorderContexts 
@@ -164,7 +165,8 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         const tempContext: Context = {
             id: `c-temp-${Date.now()}`,
             title: 'New List',
-            color: '#cccccc'
+            color: '#cccccc',
+            collapsed: false // Reason: New lists start expanded in UI.
         };
         setContexts([...contexts, tempContext]); // Optimistic
         await addContext();
@@ -177,6 +179,16 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             setContexts(contexts.map(c => c.id === id ? { ...c, title: newTitle } : c));
         }
         await updateColumn(id, newTitle, currentView);
+    };
+
+    const handleColumnCollapsedChange = async (id: string, nextCollapsed: boolean) => {
+        // Reason: Optimistically update collapse state while persisting to DB.
+        if (isStatusView) {
+            setStatuses(statuses.map(s => s.id === id ? { ...s, collapsed: nextCollapsed } : s));
+        } else {
+            setContexts(contexts.map(c => c.id === id ? { ...c, collapsed: nextCollapsed } : c));
+        }
+        await updateColumnCollapsed(id, nextCollapsed, currentView);
     };
 
     const handleStatusChange = async (taskId: string, newStatus: string) => {
@@ -349,6 +361,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                                 viewType={currentView}
                                 allContexts={contexts}
                                 onTitleChange={handleColumnTitleChange}
+                                onToggleCollapsed={handleColumnCollapsedChange}
                                 onAddTask={handleAddTask}
                                 onEditTask={setEditingTask}
                                 onStatusChange={handleStatusChange}

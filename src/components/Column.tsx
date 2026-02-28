@@ -10,6 +10,7 @@ interface ColumnProps {
   viewType: ViewType;
   allContexts: Context[];
   onTitleChange: (id: string, newTitle: string) => void;
+  onToggleCollapsed: (id: string, collapsed: boolean) => void; // Reason: Bubble collapse state changes to persistence layer.
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: string) => void;
@@ -23,6 +24,7 @@ export function Column({
     viewType, 
     allContexts, 
     onTitleChange, 
+    onToggleCollapsed,
     onAddTask, 
     onEditTask, 
     onStatusChange,
@@ -46,6 +48,7 @@ export function Column({
     ...columnStyle,
     ...(contextColor ? { borderTop: `4px solid ${contextColor}` } : { borderTop: '4px solid transparent' })
   }; // Reason: Preserve existing context border while adding drag transform.
+  const isCollapsed = column.collapsed; // Reason: Control task list rendering based on persisted state.
 
   return (
     <div 
@@ -69,6 +72,13 @@ export function Column({
                     className="font-semibold text-[#172b4d] bg-transparent border-2 border-transparent rounded p-1 text-[0.95rem] w-full cursor-pointer focus:bg-white focus:border-[#0079bf] focus:outline-none focus:cursor-text"
                 />
             </div>
+            <button
+                type="button"
+                onClick={() => onToggleCollapsed(column.id, !isCollapsed)}
+                className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
+            >
+                {isCollapsed ? '展开' : '折叠'}
+            </button> {/* Reason: Provide explicit collapse/expand control in the column header. */}
             {isColumnDragEnabled && (
                 <button
                     type="button"
@@ -84,29 +94,33 @@ export function Column({
             </span>
         </div>
 
-        {/* Task List */}
-        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 flex flex-col gap-0 min-h-[20px]">
-                {tasks.map(task => (
-                    <TaskCard 
-                        key={task.id} 
-                        task={task} 
-                        viewType={viewType}
-                        contexts={allContexts}
-                        onEdit={onEditTask}
-                        onStatusChange={onStatusChange}
-                    />
-                ))}
-            </div>
-        </SortableContext>
+        {!isCollapsed && (
+            <>
+                {/* Task List */}
+                <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 flex flex-col gap-0 min-h-[20px]">
+                        {tasks.map(task => (
+                            <TaskCard 
+                                key={task.id} 
+                                task={task} 
+                                viewType={viewType}
+                                contexts={allContexts}
+                                onEdit={onEditTask}
+                                onStatusChange={onStatusChange}
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
 
-        {/* Add Button */}
-        <button 
-            onClick={() => onAddTask(column.id)}
-            className="mt-2 text-[#5e6c84] p-2 text-left rounded cursor-pointer flex items-center gap-1.5 hover:bg-[#091e4214] hover:text-[#172b4d] shrink-0"
-        >
-            <span>+</span> Add card
-        </button>
+                {/* Add Button */}
+                <button 
+                    onClick={() => onAddTask(column.id)}
+                    className="mt-2 text-[#5e6c84] p-2 text-left rounded cursor-pointer flex items-center gap-1.5 hover:bg-[#091e4214] hover:text-[#172b4d] shrink-0"
+                >
+                    <span>+</span> Add card
+                </button>
+            </>
+        )} {/* Reason: Hide tasks and add button when column is collapsed. */}
     </div>
   );
 }
