@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useOptimistic, useTransition, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
     DndContext, 
@@ -24,7 +25,6 @@ import { ViewSwitcher } from './ViewSwitcher';
 import { TaskModal } from './TaskModal';
 import { TaskCard } from './TaskCard';
 import { 
-    fetchBoard, 
     addTask, 
     saveTask, 
     removeTask, 
@@ -62,32 +62,24 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         (state, updatedTasks: Task[]) => updatedTasks
     );
     
-    // We need local state for non-task data (statuses, contexts) for now, 
-    // but in a real app these might also be optimistic or just revalidated.
-    // For simplicity, we'll keep them in state but update via actions.
-    const [statuses, setStatuses] = useState<Status[]>(initialStatuses);
-    const [contexts, setContexts] = useState<Context[]>(initialContexts);
+    const [optimisticStatuses, setOptimisticStatuses] = useOptimistic(
+        initialStatuses,
+        (state, updatedStatuses: Status[]) => updatedStatuses
+    );
+    const [optimisticContexts, setOptimisticContexts] = useOptimistic(
+        initialContexts,
+        (state, updatedContexts: Context[]) => updatedContexts
+    );
     
-    // Initialize from URL or default to 'status'
-    const initialView = (searchParams.get('view') as ViewType) || 'status';
-    const [currentView, setCurrentViewState] = useState<ViewType>(initialView);
-    
-    // Sync internal state when URL changes (e.g. back button)
-    useEffect(() => {
-        const viewFromUrl = searchParams.get('view') as ViewType;
-        if (viewFromUrl && (viewFromUrl === 'status' || viewFromUrl === 'context')) {
-            setCurrentViewState(viewFromUrl);
-        }
-    }, [searchParams]);
+    const currentView = (searchParams.get('view') as ViewType) || 'status';
 
     const [isVertical, setIsVertical] = useState(false);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [isPending, startTransition] = useTransition();
+    const [, startTransition] = useTransition();
     const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
 
     const setCurrentView = (view: ViewType) => {
-        setCurrentViewState(view);
         // Shallow routing to update URL without reload
         router.push(`/?view=${view}`, { scroll: false });
     };
@@ -111,17 +103,8 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     );
 
     const isStatusView = currentView === 'status';
-    const columns = isStatusView ? statuses : contexts;
+    const columns = isStatusView ? optimisticStatuses : optimisticContexts;
     const isColumnDragEnabled = isDesktopDragEnabled && !isVertical; // Reason: Only allow left-right column drag on desktop in horizontal layout.
-
-    // Sync state with props when server revalidates
-    useEffect(() => {
-        setStatuses(initialStatuses);
-        setContexts(initialContexts);
-        // Note: optimisticTasks automatically resets to initialTasks when the action finishes,
-        // so we don't need to manually set it, BUT we need to trigger a state update if we were using local state.
-        // Since useOptimistic handles the "base" state (initialTasks), it will update when initialTasks changes.
-    }, [initialStatuses, initialContexts, initialTasks]);
 
     useEffect(() => {
         // Reason: Use pointer precision to enable column dragging only on desktop-class inputs.
@@ -168,15 +151,15 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             color: '#cccccc',
             collapsed: false // Reason: New lists start expanded in UI.
         };
-        setContexts([...contexts, tempContext]); // Optimistic
+        setOptimisticContexts([...optimisticContexts, tempContext]);
         await addContext();
     };
 
     const handleColumnTitleChange = async (id: string, newTitle: string) => {
         if (isStatusView) {
-            setStatuses(statuses.map(s => s.id === id ? { ...s, title: newTitle } : s));
+            setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, title: newTitle } : s));
         } else {
-            setContexts(contexts.map(c => c.id === id ? { ...c, title: newTitle } : c));
+            setOptimisticContexts(optimisticContexts.map(c => c.id === id ? { ...c, title: newTitle } : c));
         }
         await updateColumn(id, newTitle, currentView);
     };
@@ -184,9 +167,9 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const handleColumnCollapsedChange = async (id: string, nextCollapsed: boolean) => {
         // Reason: Optimistically update collapse state while persisting to DB.
         if (isStatusView) {
-            setStatuses(statuses.map(s => s.id === id ? { ...s, collapsed: nextCollapsed } : s));
+            setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, collapsed: nextCollapsed } : s));
         } else {
-            setContexts(contexts.map(c => c.id === id ? { ...c, collapsed: nextCollapsed } : c));
+            setOptimisticContexts(optimisticContexts.map(c => c.id === id ? { ...c, collapsed: nextCollapsed } : c));
         }
         await updateColumnCollapsed(id, nextCollapsed, currentView);
     };
@@ -293,10 +276,10 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             const nextColumns = arrayMove(columns, oldIndex, newIndex);
             startTransition(async () => {
                 if (isStatusView) {
-                    setStatuses(nextColumns as Status[]);
+                    setOptimisticStatuses(nextColumns as Status[]);
                     await reorderStatuses(nextColumns.map(c => c.id));
                 } else {
-                    setContexts(nextColumns as Context[]);
+                    setOptimisticContexts(nextColumns as Context[]);
                     await reorderContexts(nextColumns.map(c => c.id));
                 }
             });
@@ -340,7 +323,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                         onLayoutToggle={() => setIsVertical(!isVertical)}
                     />
                  </div>
-                 <a href="/" className="text-sm font-medium text-[#5e6c84] hover:bg-[#091e4214] px-3 py-1.5 rounded transition-colors">Back to Home</a>
+                 <Link href="/" className="text-sm font-medium text-[#5e6c84] hover:bg-[#091e4214] px-3 py-1.5 rounded transition-colors">Back to Home</Link>
             </header>
 
             <DndContext 
@@ -359,7 +342,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                                 column={col}
                                 tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
                                 viewType={currentView}
-                                allContexts={contexts}
+                                allContexts={optimisticContexts}
                                 onTitleChange={handleColumnTitleChange}
                                 onToggleCollapsed={handleColumnCollapsedChange}
                                 onAddTask={handleAddTask}
@@ -386,7 +369,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                         <TaskCard 
                             task={activeTask} 
                             viewType={currentView} 
-                            contexts={contexts} 
+                            contexts={optimisticContexts} 
                             onEdit={() => {}}
                         />
                     ) : null}
@@ -395,9 +378,10 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
 
             {editingTask && (
                 <TaskModal 
+                    key={editingTask.id}
                     task={editingTask}
-                    statuses={statuses}
-                    contexts={contexts}
+                    statuses={optimisticStatuses}
+                    contexts={optimisticContexts}
                     onSave={handleSaveTask}
                     onDelete={handleDeleteTask}
                     onClose={() => setEditingTask(null)}

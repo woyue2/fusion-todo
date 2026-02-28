@@ -14,10 +14,6 @@ interface TaskModalProps {
 export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose }: TaskModalProps) {
   const [editedTask, setEditedTask] = useState<Task>({ ...task });
 
-  useEffect(() => {
-    setEditedTask({ ...task });
-  }, [task]);
-
   const handleSave = () => {
     onSave(editedTask);
     onClose();
