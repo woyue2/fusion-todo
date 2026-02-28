@@ -1,4 +1,4 @@
-export type ViewType = 'status' | 'context';
+export type ViewType = 'status' | 'context' | 'date';
 
 export interface Status {
   id: string;
@@ -22,6 +22,7 @@ export interface Task {
   context: string; // references Context.id
   tags: string[];
   color?: string; // Hex color for card background
+  createdAt?: string; // ISO 8601 string, optional for migration compatibility
 }
 
 // Helper type for drag and drop

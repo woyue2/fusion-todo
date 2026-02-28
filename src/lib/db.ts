@@ -34,6 +34,7 @@ db.exec(`
     context TEXT,
     tags TEXT,
     color TEXT,
+    createdAt TEXT,
     "order" INTEGER DEFAULT 0, 
     FOREIGN KEY(status) REFERENCES statuses(id),
     FOREIGN KEY(context) REFERENCES contexts(id)
@@ -74,6 +75,19 @@ const ensureBelowOfColumn = (tableName: 'statuses' | 'contexts') => {
 ensureBelowOfColumn('statuses');
 ensureBelowOfColumn('contexts');
 
+// Reason: Ensure existing databases have createdAt field.
+const ensureCreatedAtColumn = () => {
+    const columns = db.prepare(`PRAGMA table_info(tasks)`).all() as { name: string }[];
+    const hasCreatedAt = columns.some(c => c.name === 'createdAt');
+    if (!hasCreatedAt) {
+        db.exec(`ALTER TABLE tasks ADD COLUMN createdAt TEXT`);
+        // Backfill with current time for existing tasks
+        const now = new Date().toISOString();
+        db.prepare('UPDATE tasks SET createdAt = ? WHERE createdAt IS NULL').run(now);
+    }
+};
+ensureCreatedAtColumn();
+
 // Seed initial data if empty
 // Reason: To provide a ready-to-use state for the user immediately.
 const taskCount = db.prepare('SELECT count(*) as count FROM tasks').get() as { count: number };
@@ -84,9 +98,9 @@ if (taskCount.count === 0) {
     const insertContext = db.prepare('INSERT INTO contexts (id, title, color, "order", collapsed, belowOf) VALUES (?, ?, ?, ?, ?, ?)');
     initialContexts.forEach((c, index) => insertContext.run(c.id, c.title, c.color, index, c.collapsed ? 1 : 0, c.belowOf ?? null)); // Reason: Seed context order and collapse state.
 
-    const insertTask = db.prepare('INSERT INTO tasks (id, title, status, context, tags, color, "order") VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const insertTask = db.prepare('INSERT INTO tasks (id, title, status, context, tags, color, createdAt, "order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     initialTasks.forEach((t, index) => {
-        insertTask.run(t.id, t.title, t.status, t.context, JSON.stringify(t.tags), t.color, index);
+        insertTask.run(t.id, t.title, t.status, t.context, JSON.stringify(t.tags), t.color, t.createdAt ?? new Date().toISOString(), index);
     });
 }
 
@@ -107,7 +121,7 @@ export function getBoardData() {
     // Reason: Fetch all necessary data in one go to render the board.
     type StatusRow = { id: string; title: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for status columns.
     type ContextRow = { id: string; title: string; color: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for context columns.
-    type TaskRow = { id: string; title: string; status: string; context: string; tags: string; color: string | null; order: number }; // Reason: Align DB row shape for tasks.
+    type TaskRow = { id: string; title: string; status: string; context: string; tags: string; color: string | null; createdAt: string | null; order: number }; // Reason: Align DB row shape for tasks.
     const statusesRaw = db.prepare('SELECT * FROM statuses ORDER BY "order" ASC').all() as StatusRow[]; // Reason: Respect persisted column order.
     const contextsRaw = db.prepare('SELECT * FROM contexts ORDER BY "order" ASC').all() as ContextRow[]; // Reason: Respect persisted column order.
     const tasksRaw = db.prepare('SELECT * FROM tasks ORDER BY "order" ASC').all() as TaskRow[];
@@ -126,7 +140,8 @@ export function getBoardData() {
     const tasks: Task[] = tasksRaw.map(t => ({
         ...t,
         color: t.color ?? undefined,
-        tags: JSON.parse(t.tags)
+        tags: JSON.parse(t.tags),
+        createdAt: t.createdAt ?? new Date().toISOString()
     }));
 
     return { statuses, contexts, tasks };
@@ -137,8 +152,8 @@ export function createTask(task: Task) {
     const maxOrder = db.prepare('SELECT MAX("order") as max FROM tasks').get() as { max: number };
     const newOrder = (maxOrder.max || 0) + 1;
     
-    const stmt = db.prepare('INSERT INTO tasks (id, title, status, context, tags, color, "order") VALUES (?, ?, ?, ?, ?, ?, ?)');
-    stmt.run(task.id, task.title, task.status, task.context, JSON.stringify(task.tags), task.color, newOrder);
+    const stmt = db.prepare('INSERT INTO tasks (id, title, status, context, tags, color, createdAt, "order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(task.id, task.title, task.status, task.context, JSON.stringify(task.tags), task.color, task.createdAt ?? new Date().toISOString(), newOrder);
     return task;
 }
 

@@ -24,14 +24,25 @@ export async function fetchBoard() {
     return getBoardData();
 }
 
-export async function addTask(columnId: string, viewType: 'status' | 'context') {
+export async function addTask(columnId: string, viewType: 'status' | 'context' | 'date') {
     const newTask: Task = {
         id: `t${Date.now()}`,
         title: 'New Task',
         status: viewType === 'status' ? columnId : 'todo',
-        context: viewType === 'status' ? 'c1' : columnId,
+        context: viewType === 'status' ? 'c1' : (viewType === 'date' ? 'c1' : columnId),
         tags: [],
-        color: '#ffffff'
+        color: '#ffffff',
+        createdAt: new Date().toISOString()
+    };
+    dbCreateTask(newTask);
+    revalidatePath('/');
+    return newTask;
+}
+
+export async function createTaskFull(task: Task) {
+    const newTask: Task = {
+        ...task,
+        id: `t${Date.now()}` // Ensure server-side ID generation
     };
     dbCreateTask(newTask);
     revalidatePath('/');
@@ -61,18 +72,21 @@ export async function addContext() {
     return newContext;
 }
 
-export async function updateColumn(id: string, title: string, type: 'status' | 'context') {
+export async function updateColumn(id: string, title: string, type: 'status' | 'context' | 'date') {
+    if (type === 'date') return;
     dbUpdateColumnTitle(id, title, type);
     revalidatePath('/');
 }
 
-export async function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context') {
+export async function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context' | 'date') {
+    if (type === 'date') return;
     // Reason: Persist column collapse state changes from the client.
     dbUpdateColumnCollapsed(id, collapsed, type);
     revalidatePath('/');
 }
 
-export async function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context') {
+export async function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context' | 'date') {
+    if (type === 'date') return;
     dbUpdateColumnBelowOf(id, belowOf, type);
     revalidatePath('/');
 }
