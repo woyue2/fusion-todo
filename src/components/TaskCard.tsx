@@ -44,10 +44,12 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
   const isStatusView = viewType === 'status';
   
   // Status Colors (Left Border)
+  // Reason: Include When Free color for the new status column.
   const statusColors: Record<string, string> = {
     todo: '#dfe1e6',
     doing: '#0079bf',
     done: '#61bd4f',
+    'when-free': '#9e9e9e',
   };
   const statusColor = statusColors[task.status] || '#dfe1e6';
   
@@ -119,9 +121,11 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
           onChange={(e) => onStatusChange && onStatusChange(task.id, e.target.value)}
           value={task.status}
         >
+          {/* Reason: Expose When Free in the status dropdown. */}
           <option value="todo">To Do</option>
           <option value="doing">In Progress</option>
           <option value="done">Done</option>
+          <option value="when-free">When Free</option>
         </select>
       ) : (
         contextObj && (

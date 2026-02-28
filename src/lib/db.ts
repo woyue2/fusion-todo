@@ -90,6 +90,17 @@ if (taskCount.count === 0) {
     });
 }
 
+const ensureStatusExists = (id: string, title: string) => {
+    // Reason: Backfill new status columns for existing databases.
+    const exists = db.prepare('SELECT COUNT(*) as count FROM statuses WHERE id = ?').get(id) as { count: number };
+    if (!exists.count) {
+        const maxOrder = db.prepare('SELECT MAX("order") as max FROM statuses').get() as { max: number };
+        const newOrder = (maxOrder.max || 0) + 1;
+        db.prepare('INSERT INTO statuses (id, title, "order", collapsed, belowOf) VALUES (?, ?, ?, ?, ?)').run(id, title, newOrder, 0, null);
+    }
+};
+ensureStatusExists('when-free', 'When Free'); // Reason: Ensure When Free status exists in persisted data.
+
 // --- Data Access Functions ---
 
 export function getBoardData() {
@@ -114,6 +125,7 @@ export function getBoardData() {
     
     const tasks: Task[] = tasksRaw.map(t => ({
         ...t,
+        color: t.color ?? undefined,
         tags: JSON.parse(t.tags)
     }));
 

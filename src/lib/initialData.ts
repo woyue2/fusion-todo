@@ -4,11 +4,13 @@ export const initialStatuses: Status[] = [
   // Reason: Seed columns as expanded by default.
   { id: 'todo', title: 'To Do', collapsed: false, belowOf: null },
   { id: 'doing', title: 'In Progress', collapsed: false, belowOf: null },
-  { id: 'done', title: 'Done', collapsed: false, belowOf: null }
+  { id: 'done', title: 'Done', collapsed: false, belowOf: null },
+  { id: 'when-free', title: 'When Free', collapsed: false, belowOf: null } // Reason: Add When Free as a status column.
 ];
 
 export const initialContexts: Context[] = [
   // Reason: Seed columns as expanded by default.
+  // Reason: When Free is modeled as a status, not a context.
   { id: 'c1', title: 'Urgent', color: '#ff5252', collapsed: false, belowOf: null },     // Red
   { id: 'c2', title: 'Deep Work', color: '#448aff', collapsed: false, belowOf: null },  // Blue
   { id: 'c3', title: 'Routine', color: '#69f0ae', collapsed: false, belowOf: null }     // Green
