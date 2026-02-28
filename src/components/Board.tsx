@@ -76,6 +76,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     const isStatusView = currentView === 'status';
     const isDateView = currentView === 'date';
     const [isVertical, setIsVertical] = useState(false);
+    const [dateCollapsed, setDateCollapsed] = useState<Record<string, boolean>>({});
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
@@ -141,7 +142,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                     id: date,
                     title: title,
                     color: '#cccccc',
-                    collapsed: false,
+                    collapsed: dateCollapsed[date] || false,
                     belowOf: null
                 } as Status; // Treat as Status for compatibility
             });
@@ -230,6 +231,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     };
 
     const handleColumnTitleChange = async (id: string, newTitle: string) => {
+        if (isDateView) return; // Date columns cannot be renamed
         if (isStatusView) {
             setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, title: newTitle } : s));
         } else {
@@ -239,6 +241,10 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     };
 
     const handleColumnCollapsedChange = async (id: string, nextCollapsed: boolean) => {
+        if (isDateView) {
+            setDateCollapsed(prev => ({ ...prev, [id]: nextCollapsed }));
+            return;
+        }
         // Reason: Optimistically update collapse state while persisting to DB.
         if (isStatusView) {
             setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, collapsed: nextCollapsed } : s));
