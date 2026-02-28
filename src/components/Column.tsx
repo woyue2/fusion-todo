@@ -23,6 +23,8 @@ interface ColumnProps {
   canMoveLeft: boolean; // Reason: Disable button when not an anchor or no left anchor.
   canMoveRight: boolean; // Reason: Disable button when not an anchor or no right anchor.
   isColumnDragEnabled: boolean;
+  isActionOpen: boolean; // Reason: Controlled state from parent for mutual exclusivity.
+  onToggleAction: () => void; // Reason: Toggle action panel visibility.
   className?: string;
 }
 
@@ -45,6 +47,8 @@ export function Column({
     canMoveLeft,
     canMoveRight,
     isColumnDragEnabled,
+    isActionOpen,
+    onToggleAction,
     className
 }: ColumnProps) {
   // Reason: useSortable enables column drag while keeping the column droppable for tasks.
@@ -52,7 +56,6 @@ export function Column({
     id: column.id,
     data: { type: 'Column', column }
   });
-  const [actionsOpen, setActionsOpen] = useState(false); // Reason: 点击“更多”按钮时展示四方向箭头
 
   const isStatusView = viewType === 'status';
   const isDateView = viewType === 'date';
@@ -98,17 +101,17 @@ export function Column({
                 {isCollapsed ? '展开' : '折叠'}
             </button> {/* Reason: Provide explicit collapse/expand control in the column header. */}
             
-            <div className="relative flex items-center"> {/* Reason: 提供动作面板的定位容器 */}
+            <div className="relative flex items-center" data-action-panel> {/* Reason: 提供动作面板的定位容器 */}
                 <button
                     type="button"
-                    aria-expanded={actionsOpen}
-                    onClick={() => setActionsOpen(!actionsOpen)}
+                    aria-expanded={isActionOpen}
+                    onClick={onToggleAction}
                     className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
                     title="更多动作"
                 >
                     ···
                 </button>
-                {actionsOpen && (
+                {isActionOpen && (
                     <div className="absolute top-full right-0 mt-1 bg-white rounded shadow-md border border-[#dfe1e6] p-1 flex items-center gap-1 z-10">
                         <button
                             type="button"

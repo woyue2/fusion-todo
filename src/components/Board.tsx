@@ -85,6 +85,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
+    const [activeActionColumnId, setActiveActionColumnId] = useState<string | null>(null); // Reason: Manage active column action panel for mutual exclusivity.
     const [, startTransition] = useTransition();
     const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
     const tempTaskIdRef = useRef(0); // Reason: Generate stable temp IDs without impure Date.now during render.
@@ -93,6 +94,21 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         // Shallow routing to update URL without reload
         router.push(`/?view=${view}`, { scroll: false });
     };
+
+    // Reason: Close action panel when clicking outside.
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('[data-action-panel]')) {
+                setActiveActionColumnId(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -638,6 +654,8 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                                         canMoveRight={isAnchor && hasRightAnchor} // Reason: Only anchors can move horizontally.
                                         className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
                                         isColumnDragEnabled={isColumnDragEnabled}
+                                        isActionOpen={activeActionColumnId === col.id}
+                                        onToggleAction={() => setActiveActionColumnId(activeActionColumnId === col.id ? null : col.id)}
                                     />
                                 );
                                 })}
