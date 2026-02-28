@@ -21,8 +21,8 @@ import {
 import { arrayMove, sortableKeyboardCoordinates, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { ViewType, Task, Status, Context } from '@/lib/types';
 import { Column } from './Column';
-import { ViewSwitcher } from './ViewSwitcher';
 import { TaskModal } from './TaskModal';
+import { IdeaModal } from './IdeaModal';
 import { TaskCard } from './TaskCard';
 import { 
     addTask, 
@@ -73,10 +73,12 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     );
     
     const currentView = (searchParams.get('view') as ViewType) || 'status';
-
+    const isStatusView = currentView === 'status';
+    const isDateView = currentView === 'date';
     const [isVertical, setIsVertical] = useState(false);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
     const [, startTransition] = useTransition();
     const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
     const tempTaskIdRef = useRef(0); // Reason: Generate stable temp IDs without impure Date.now during render.
@@ -104,8 +106,48 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         })
     );
 
-    const isStatusView = currentView === 'status';
-    const columns = isStatusView ? optimisticStatuses : optimisticContexts;
+    // --- Column Calculation ---
+    const columns = (() => {
+        if (isStatusView) return optimisticStatuses;
+        if (isDateView) {
+            // Group tasks by date for Date View
+            // We'll generate dynamic "columns" based on task dates
+            // Format: Today, Yesterday, Earlier (by date)
+            const dates = new Set<string>();
+            optimisticTasks.forEach(t => {
+                if (t.createdAt) {
+                    const date = new Date(t.createdAt).toISOString().split('T')[0];
+                    dates.add(date);
+                }
+            });
+            // Ensure Today and Yesterday exist if we want them always visible, 
+            // or just let them appear if there are tasks.
+            // For prototype: Add Today as a placeholder if empty? 
+            // Let's stick to actual data + Today if missing.
+            const today = new Date().toISOString().split('T')[0];
+            dates.add(today);
+            
+            const sortedDates = Array.from(dates).sort((a, b) => b.localeCompare(a)); // Descending
+            
+            return sortedDates.map(date => {
+                const isToday = date === today;
+                const isYesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0] === date;
+                
+                let title = date;
+                if (isToday) title = `${date} (Today)`;
+                else if (isYesterday) title = `${date} (Yesterday)`;
+                
+                return {
+                    id: date,
+                    title: title,
+                    color: '#cccccc',
+                    collapsed: false,
+                    belowOf: null
+                } as Status; // Treat as Status for compatibility
+            });
+        }
+        return optimisticContexts;
+    })();
     const isColumnDragEnabled = isDesktopDragEnabled && !isVertical; // Reason: Only allow left-right column drag on desktop in horizontal layout.
     const columnOrderIndex = new Map(columns.map((c, index) => [c.id, index]));
     const columnsById = new Map(columns.map(c => [c.id, c]));
@@ -221,6 +263,25 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             await saveTask(updatedTask);
         });
         setEditingTask(null); // Close immediately
+    };
+
+    const handleCreateIdea = async (task: Partial<Task>) => {
+        const tempId = `t-idea-${tempTaskIdRef.current++}`;
+        const newTask = {
+            id: tempId,
+            title: task.title || 'New Idea',
+            status: task.status || 'todo',
+            context: task.context || 'c1',
+            tags: task.tags || [],
+            color: task.color || '#ffffff',
+            createdAt: task.createdAt || new Date().toISOString()
+        } as Task;
+
+        startTransition(async () => {
+            setOptimisticTasks([...optimisticTasks, newTask]);
+            await import('@/app/actions').then(({ createTaskFull }) => createTaskFull(newTask));
+            setIsIdeaModalOpen(false);
+        });
     };
 
     const handleDeleteTask = async (taskId: string) => {
@@ -352,7 +413,12 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         });
     };
 
-    // --- DnD Handlers ---
+    // Reason: Filter tasks for each column based on current view logic.
+    const getTasksForColumn = (columnId: string) => {
+        if (isStatusView) return optimisticTasks.filter(t => t.status === columnId);
+        if (isDateView) return optimisticTasks.filter(t => t.createdAt && t.createdAt.startsWith(columnId));
+        return optimisticTasks.filter(t => t.context === columnId);
+    };
 
     const handleDragStart = (event: DragStartEvent) => {
         // Reason: Only show task overlay for task drags, not column drags.
@@ -481,13 +547,34 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
             <header className="flex justify-between items-center mb-4 shrink-0">
                  <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold text-[#172b4d]">Polished Fusion</h1>
-                    <ViewSwitcher 
-                        currentView={currentView} 
-                        onViewChange={setCurrentView}
-                        onLayoutToggle={() => setIsVertical(!isVertical)}
-                    />
-                 </div>
-                 <Link href="/" className="text-sm font-medium text-[#5e6c84] hover:bg-[#091e4214] px-3 py-1.5 rounded transition-colors">Back to Home</Link>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button 
+                            onClick={() => setCurrentView('status')}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${currentView === 'status' ? 'bg-white text-[#0079bf] shadow-sm' : 'text-gray-500 hover:text-[#0079bf]'}`}
+                        >
+                            Status
+                        </button>
+                        <button 
+                            onClick={() => setCurrentView('context')}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${currentView === 'context' ? 'bg-white text-[#0079bf] shadow-sm' : 'text-gray-500 hover:text-[#0079bf]'}`}
+                        >
+                            Context
+                        </button>
+                        <button 
+                            onClick={() => setCurrentView('date')}
+                            className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-all ${currentView === 'date' ? 'bg-white text-[#0079bf] shadow-sm' : 'text-gray-500 hover:text-[#0079bf]'}`}
+                        >
+                            Date
+                        </button>
+                    </div>
+                <button 
+                    onClick={() => setIsIdeaModalOpen(true)}
+                    className="bg-[#0079bf] hover:bg-[#005582] text-white font-bold py-2 px-4 rounded-md shadow-md transition-colors flex items-center gap-2"
+                >
+                    <span>➕</span> New
+                </button>
+            </div>
+            <Link href="/" className="text-sm font-medium text-[#5e6c84] hover:bg-[#091e4214] px-3 py-1.5 rounded transition-colors">Back to Home</Link>
             </header>
 
             <DndContext 
@@ -514,7 +601,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                                     <Column 
                                         key={col.id}
                                         column={col}
-                                        tasks={optimisticTasks.filter(t => isStatusView ? t.status === col.id : t.context === col.id)}
+                                        tasks={getTasksForColumn(col.id)}
                                         viewType={currentView}
                                         allContexts={optimisticContexts}
                                         onTitleChange={handleColumnTitleChange}
@@ -540,7 +627,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                         })}
                     </SortableContext>
                     
-                    {!isStatusView && (
+                    {!isStatusView && !isDateView && (
                         <button 
                             onClick={handleAddColumn}
                             className={`flex justify-center items-center bg-white/50 border-2 border-dashed border-[#ccc] rounded-lg text-[#5e6c84] font-medium cursor-pointer hover:bg-white/80 hover:border-[#0079bf] hover:text-[#0079bf] transition-all shrink-0 ${isVertical ? 'w-full h-[60px]' : 'w-[300px] h-[50px]'}`}
@@ -571,6 +658,13 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
                     onSave={handleSaveTask}
                     onDelete={handleDeleteTask}
                     onClose={() => setEditingTask(null)}
+                />
+            )}
+            {isIdeaModalOpen && (
+                <IdeaModal 
+                    contexts={optimisticContexts}
+                    onSave={handleCreateIdea}
+                    onClose={() => setIsIdeaModalOpen(false)}
                 />
             )}
         </div>
