@@ -119,3 +119,10 @@ export async function reorderDateColumns(dateColumns: DateColumn[]) {
     dbReorderDateColumns(dateColumns);
     revalidatePath('/');
 }
+
+export async function deleteContextCascade(contextId: string) {
+    // Reason: Server action to cascade delete a context and its tasks, then revalidate UI.
+    const mod = await import('@/lib/db');
+    mod.deleteContextCascade(contextId);
+    revalidatePath('/');
+}

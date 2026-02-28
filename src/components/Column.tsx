@@ -25,6 +25,7 @@ interface ColumnProps {
   isColumnDragEnabled: boolean;
   isActionOpen: boolean; // Reason: Controlled state from parent for mutual exclusivity.
   onToggleAction: () => void; // Reason: Toggle action panel visibility.
+  onDeleteContext?: (contextId: string) => void; // Reason: Cascade delete entry point for context columns.
   className?: string;
 }
 
@@ -49,6 +50,7 @@ export function Column({
     isColumnDragEnabled,
     isActionOpen,
     onToggleAction,
+    onDeleteContext,
     className
 }: ColumnProps) {
   // Reason: useSortable enables column drag while keeping the column droppable for tasks.
@@ -149,6 +151,21 @@ export function Column({
                         >
                             →
                         </button>
+                        {!isStatusView && !isDateView && onDeleteContext && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('删除该列表及其所有任务？此操作不可撤销')) {
+                                // Reason: Confirm destructive action before cascading delete.
+                                onDeleteContext(column.id);
+                              }
+                            }}
+                            className="px-2 py-1 rounded text-[#eb5a46] hover:bg-[#eb5a46]/10"
+                            title="删除列表（包含该列表下的所有任务）"
+                          >
+                            删除
+                          </button>
+                        )}
                     </div>
                 )}
             </div>

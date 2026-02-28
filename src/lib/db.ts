@@ -292,3 +292,16 @@ export function reorderContexts(contextIds: string[]) {
     });
     updateTransaction(contextIds);
 }
+
+export function deleteContextCascade(contextId: string) {
+    // Reason: Delete a context and all its tasks atomically; release stacked children; re-pack orders.
+    const tx = db.transaction((id: string) => {
+        db.prepare('DELETE FROM tasks WHERE context = ?').run(id); // Reason: Remove tasks under the context.
+        db.prepare('UPDATE contexts SET belowOf = NULL WHERE belowOf = ?').run(id); // Reason: Release children from deleted anchor.
+        db.prepare('DELETE FROM contexts WHERE id = ?').run(id); // Reason: Remove the context itself.
+        const remaining = db.prepare('SELECT id FROM contexts ORDER BY "order" ASC').all() as { id: string }[]; // Reason: Re-pack orders to keep sequence continuous.
+        const updateOrder = db.prepare('UPDATE contexts SET "order" = ? WHERE id = ?');
+        remaining.forEach((row, index) => updateOrder.run(index, row.id));
+    });
+    tx(contextId);
+}

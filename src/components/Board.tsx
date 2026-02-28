@@ -35,7 +35,8 @@ import {
     moveTask,
     reorderStatuses,
     reorderContexts,
-    reorderDateColumns
+    reorderDateColumns,
+    deleteContextCascade
 } from '@/app/actions';
 
 const dropAnimation: DropAnimation = {
@@ -328,6 +329,16 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             await removeTask(taskId);
         });
         setEditingTask(null);
+    };
+    
+    const handleDeleteContext = async (contextId: string) => {
+        // Reason: Cascade delete context and its tasks; optimistic UI update first.
+        startTransition(async () => {
+            setOptimisticContexts(optimisticContexts.filter(c => c.id !== contextId));
+            setOptimisticTasks(optimisticTasks.filter(t => t.context !== contextId));
+            await deleteContextCascade(contextId);
+            if (activeActionColumnId === contextId) setActiveActionColumnId(null);
+        });
     };
     
 
@@ -672,6 +683,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                                         isColumnDragEnabled={isColumnDragEnabled}
                                         isActionOpen={activeActionColumnId === col.id}
                                         onToggleAction={() => setActiveActionColumnId(activeActionColumnId === col.id ? null : col.id)}
+                                        onDeleteContext={!isStatusView && !isDateView ? handleDeleteContext : undefined}
                                     />
                                 );
                                 })}
