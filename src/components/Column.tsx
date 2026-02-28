@@ -4,28 +4,31 @@ import { CSS } from '@dnd-kit/utilities';
 import { Task, ViewType, Status, Context } from '@/lib/types';
 import { TaskCard } from './TaskCard';
 
+// 1. Column 组件：看板中的一列，包含该列的任务列表
+// 支持拖拽排序、折叠、标题编辑和更多操作
+
 interface ColumnProps {
   column: Status | Context;
   tasks: Task[];
   viewType: ViewType;
   allContexts: Context[];
   onTitleChange: (id: string, newTitle: string) => void;
-  onToggleCollapsed: (id: string, collapsed: boolean) => void; // Reason: Bubble collapse state changes to persistence layer.
+  onToggleCollapsed: (id: string, collapsed: boolean) => void; 
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: string) => void;
-  onMoveAbove: (columnId: string) => void; // Reason: Semantic move button for placing above left neighbor.
-  onMoveBelow: (columnId: string) => void; // Reason: Semantic move button for placing below left neighbor.
-  onMoveLeft: (columnId: string) => void; // Reason: Semantic move button for shifting left among anchors.
-  onMoveRight: (columnId: string) => void; // Reason: Semantic move button for shifting right among anchors.
-  canMoveAbove: boolean; // Reason: Disable button when no valid left neighbor.
-  canMoveBelow: boolean; // Reason: Disable button when no valid left neighbor.
-  canMoveLeft: boolean; // Reason: Disable button when not an anchor or no left anchor.
-  canMoveRight: boolean; // Reason: Disable button when not an anchor or no right anchor.
+  onMoveAbove: (columnId: string) => void; 
+  onMoveBelow: (columnId: string) => void; 
+  onMoveLeft: (columnId: string) => void; 
+  onMoveRight: (columnId: string) => void; 
+  canMoveAbove: boolean; 
+  canMoveBelow: boolean; 
+  canMoveLeft: boolean; 
+  canMoveRight: boolean; 
   isColumnDragEnabled: boolean;
-  isActionOpen: boolean; // Reason: Controlled state from parent for mutual exclusivity.
-  onToggleAction: () => void; // Reason: Toggle action panel visibility.
-  onDeleteContext?: (contextId: string) => void; // Reason: Cascade delete entry point for context columns.
+  isActionOpen: boolean; // 动作面板是否打开
+  onToggleAction: () => void; 
+  onDeleteContext?: (contextId: string) => void; // 删除列的回调（仅 Context 视图可用）
   className?: string;
 }
 
@@ -53,7 +56,7 @@ export function Column({
     onDeleteContext,
     className
 }: ColumnProps) {
-  // Reason: useSortable enables column drag while keeping the column droppable for tasks.
+  // 2. 使用 useSortable 钩子，使该列本身可以被拖拽
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: column.id,
     data: { type: 'Column', column }
@@ -61,43 +64,61 @@ export function Column({
 
   const isStatusView = viewType === 'status';
   const isDateView = viewType === 'date';
+  // 3. 如果是 Context 视图，获取列颜色
   const contextColor = !isStatusView && !isDateView && 'color' in column ? (column as Context).color : undefined;
+  
+  // 4. 计算拖拽时的样式
   const columnStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : 1
-  }; // Reason: Reflect drag state for column movement feedback.
+    opacity: isDragging ? 0.6 : 1 // 拖拽时降低不透明度
+  }; 
   const combinedStyle = {
     ...columnStyle,
+    // 为 Context 列添加顶部彩色边框
     ...(contextColor ? { borderTop: `4px solid ${contextColor}` } : { borderTop: '4px solid transparent' })
-  }; // Reason: Preserve existing context border while adding drag transform.
-  const isCollapsed = column.collapsed; // Reason: Control task list rendering based on persisted state.
+  }; 
+  const isCollapsed = column.collapsed; 
 
   return (
     <div 
         ref={setNodeRef}
         style={combinedStyle}
+        // 5. 应用拖拽监听器 (listeners) 到整个列容器（或者只给 header 加 handle）
+        // 这里没有把 listeners 加在最外层，通常应该加在 Header 上作为拖拽手柄，
+        // 但如果 isColumnDragEnabled 为 false，则无法拖拽。
+        // 注意：Board.tsx 中 SortableContext 包裹了 Column，拖拽逻辑主要在 Header 上实现（见下方）
         className={`flex flex-col bg-[#ebecf0] rounded-lg p-2.5 box-border ${className || ''}`}
     >
-        {/* Header */}
+        {/* 6. 列头区域 (Header) */}
         <div className="flex justify-between items-center mb-2.5 p-1 shrink-0">
-            <div className="flex items-center w-full">
+            <div className="flex items-center w-full"
+                 // 7. 只有在允许拖拽时，头部才作为拖拽手柄
+                 {...(isColumnDragEnabled ? { ...attributes, ...listeners } : {})}
+            >
                 {contextColor && (
                     <div 
                         className="w-3 h-3 rounded-full mr-2 shrink-0" 
                         style={{ backgroundColor: contextColor }}
                     />
                 )}
+                {/* 8. 标题输入框 */}
                 <input 
                     type="text" 
                     value={column.title}
                     onChange={(e) => onTitleChange(column.id, e.target.value)}
+                    // 防止输入时触发拖拽：onPointerDown 停止冒泡
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                     className="font-semibold text-[#172b4d] bg-transparent border-2 border-transparent rounded p-1 text-[0.95rem] w-full cursor-pointer focus:bg-white focus:border-[#0079bf] focus:outline-none focus:cursor-text"
                 />
             </div>
+            
+            {/* 9. 折叠/展开按钮 */}
             <button
                 type="button"
                 onClick={() => onToggleCollapsed(column.id, !isCollapsed)}
+
                 className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
             >
                 {isCollapsed ? '展开' : '折叠'}

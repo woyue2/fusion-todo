@@ -1,5 +1,8 @@
 'use client';
 
+// 1. Board 组件：核心看板组件，负责状态管理和拖拽交互
+// 这是一个 Client Component，因为包含了大量的交互逻辑 (useState, useOptimistic, DndContext)
+
 import React, { useState, useOptimistic, useTransition, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -39,6 +42,7 @@ import {
     deleteContextCascade
 } from '@/app/actions';
 
+// 拖拽结束时的动画效果配置
 const dropAnimation: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({
     styles: {
@@ -60,7 +64,9 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
     const router = useRouter();
     const searchParams = useSearchParams();
     
-    // Reason: useOptimistic allows immediate UI updates while Server Actions run in background.
+    // 2. 乐观更新 (Optimistic UI) 状态
+    // useOptimistic 允许我们在服务端操作完成前，立即更新 UI，提升用户体验
+    // 当服务端操作完成后，Next.js 会自动用最新数据刷新组件
     const [optimisticTasks, setOptimisticTasks] = useOptimistic(
         initialTasks,
         (state, updatedTasks: Task[]) => updatedTasks
@@ -79,24 +85,28 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         (state, updatedDateColumns: DateColumn[]) => updatedDateColumns
     );
     
+    // 3. 获取当前视图类型 (status / context / date)，默认为 status
     const currentView = (searchParams.get('view') as ViewType) || 'status';
     const isStatusView = currentView === 'status';
     const isDateView = currentView === 'date';
-    const [isVertical, setIsVertical] = useState(false);
-    const [activeTask, setActiveTask] = useState<Task | null>(null);
-    const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
-    const [activeActionColumnId, setActiveActionColumnId] = useState<string | null>(null); // Reason: Manage active column action panel for mutual exclusivity.
-    const [, startTransition] = useTransition();
-    const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // Reason: Disable column drag on mobile per requirement.
-    const tempTaskIdRef = useRef(0); // Reason: Generate stable temp IDs without impure Date.now during render.
 
+    // 4. 组件内部状态
+    const [isVertical, setIsVertical] = useState(false); // 是否垂直布局
+    const [activeTask, setActiveTask] = useState<Task | null>(null); // 当前正在拖拽的任务
+    const [editingTask, setEditingTask] = useState<Task | null>(null); // 当前正在编辑的任务（打开 Modal）
+    const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false); // 是否打开新建 Idea 弹窗
+    const [activeActionColumnId, setActiveActionColumnId] = useState<string | null>(null); // 当前打开动作面板的列 ID
+    const [, startTransition] = useTransition(); // 用于触发 Server Actions 的 Transition
+    const [isDesktopDragEnabled, setIsDesktopDragEnabled] = useState(false); // 是否启用桌面端拖拽（移动端禁用）
+    const tempTaskIdRef = useRef(0); // 用于生成临时任务 ID
+
+    // 5. 切换视图函数：更新 URL 查询参数
     const setCurrentView = (view: ViewType) => {
         // Shallow routing to update URL without reload
         router.push(`/?view=${view}`, { scroll: false });
     };
 
-    // Reason: Close action panel when clicking outside.
+    // 6. 监听点击事件，点击空白处关闭列动作面板
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
@@ -111,10 +121,11 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         };
     }, []);
 
+    // 7. 配置拖拽传感器 (Sensors)
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8, // Increased slightly to prevent accidental drags
+                distance: 8, // 鼠标移动超过 8px 才开始拖拽，防止误触
             },
         }),
         useSensor(TouchSensor, {
