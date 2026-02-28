@@ -8,7 +8,9 @@ import {
     deleteTask as dbDeleteTask,
     createContext as dbCreateContext,
     updateColumnTitle as dbUpdateColumnTitle,
-    reorderTasks as dbReorderTasks
+    reorderTasks as dbReorderTasks,
+    reorderStatuses as dbReorderStatuses,
+    reorderContexts as dbReorderContexts
 } from '@/lib/db';
 import { Task, Context } from '@/lib/types';
 
@@ -71,5 +73,17 @@ export async function moveTask(tasks: Task[]) {
     tasks.forEach(t => dbUpdateTask(t)); 
     dbReorderTasks(tasks);
     
+    revalidatePath('/');
+}
+
+export async function reorderStatuses(statusIds: string[]) {
+    // Reason: Persist status column order after desktop column drag.
+    dbReorderStatuses(statusIds);
+    revalidatePath('/');
+}
+
+export async function reorderContexts(contextIds: string[]) {
+    // Reason: Persist context column order after desktop column drag.
+    dbReorderContexts(contextIds);
     revalidatePath('/');
 }
