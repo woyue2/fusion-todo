@@ -8,11 +8,22 @@ interface IdeaModalProps {
 }
 
 export function IdeaModal({ contexts, onSave, onClose }: IdeaModalProps) {
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }; // Reason: Use local date for default to avoid UTC day shift.
+  const toUtcIsoFromDateString = (dateString: string) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day)).toISOString();
+  }; // Reason: Persist a stable ISO date based on the selected local day.
   const [title, setTitle] = useState('');
   const [context, setContext] = useState(contexts[0]?.id || 'c1');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [createdAt, setCreatedAt] = useState(new Date().toISOString().split('T')[0]); // Default to today
+  const [createdAt, setCreatedAt] = useState(getLocalDateString()); // Reason: Default to today in local time.
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && tagInput.trim()) {
@@ -36,7 +47,7 @@ export function IdeaModal({ contexts, onSave, onClose }: IdeaModalProps) {
       tags,
       status: 'todo', // Default status for new ideas
       color: '#ffffff',
-      createdAt: new Date(createdAt).toISOString() // Convert date string back to ISO
+      createdAt: toUtcIsoFromDateString(createdAt) // Reason: Preserve selected day when storing ISO.
     });
     onClose();
   };
