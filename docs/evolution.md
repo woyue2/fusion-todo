@@ -6,3 +6,7 @@
 ## 变动 列折叠持久化与列头折叠按钮
 ### 原因 需要在列头快速折叠任务区并跨设备保持状态
 ### 影响 statuses/contexts 增加 collapsed 字段，列渲染根据折叠状态隐藏任务区与 Add card
+
+## 变动 修复 Board 与 TaskModal 的 lint 报错
+### 原因 lint 规则禁止在 effect 内同步 setState 与使用 a 标签导航
+### 影响 视图切换与列表状态改为基于参数与乐观状态，Modal 通过 key 重建以同步编辑态
