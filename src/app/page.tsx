@@ -4,13 +4,14 @@ import { fetchBoard } from './actions';
 
 // Reason: This is a Server Component. It fetches data on the server and passes it to the Client Component (Board).
 export default async function Home() {
-  const { statuses, contexts, tasks } = await fetchBoard();
+  const { statuses, contexts, tasks, dateColumns } = await fetchBoard();
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <Board 
         initialStatuses={statuses} 
         initialContexts={contexts} 
+        initialDateColumns={dateColumns}
         initialTasks={tasks} 
       />
     </Suspense>

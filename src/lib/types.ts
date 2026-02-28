@@ -15,6 +15,13 @@ export interface Context {
   belowOf?: string | null;
 }
 
+export interface DateColumn {
+  id: string; // YYYY-MM-DD
+  title: string;
+  collapsed: boolean;
+  belowOf?: string | null;
+}
+
 export interface Task {
   id: string;
   title: string;

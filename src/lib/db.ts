@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Task, Status, Context } from './types';
+import { Task, Status, Context, DateColumn } from './types';
 import { initialTasks, initialStatuses, initialContexts } from './initialData';
 
 // Reason for better-sqlite3: It's a synchronous, fast, and simple file-based DB, 
@@ -23,6 +23,13 @@ db.exec(`
     id TEXT PRIMARY KEY,
     title TEXT,
     color TEXT,
+    "order" INTEGER DEFAULT 0,
+    collapsed INTEGER DEFAULT 0,
+    belowOf TEXT
+  );
+  CREATE TABLE IF NOT EXISTS date_columns (
+    id TEXT PRIMARY KEY,
+    title TEXT,
     "order" INTEGER DEFAULT 0,
     collapsed INTEGER DEFAULT 0,
     belowOf TEXT
@@ -121,9 +128,11 @@ export function getBoardData() {
     // Reason: Fetch all necessary data in one go to render the board.
     type StatusRow = { id: string; title: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for status columns.
     type ContextRow = { id: string; title: string; color: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for context columns.
+    type DateRow = { id: string; title: string; order: number; collapsed: number | null; belowOf: string | null }; // Reason: Align DB row shape for date columns.
     type TaskRow = { id: string; title: string; status: string; context: string; tags: string; color: string | null; createdAt: string | null; order: number }; // Reason: Align DB row shape for tasks.
     const statusesRaw = db.prepare('SELECT * FROM statuses ORDER BY "order" ASC').all() as StatusRow[]; // Reason: Respect persisted column order.
     const contextsRaw = db.prepare('SELECT * FROM contexts ORDER BY "order" ASC').all() as ContextRow[]; // Reason: Respect persisted column order.
+    const dateColumnsRaw = db.prepare('SELECT * FROM date_columns ORDER BY "order" ASC').all() as DateRow[];
     const tasksRaw = db.prepare('SELECT * FROM tasks ORDER BY "order" ASC').all() as TaskRow[];
 
     const statuses: Status[] = statusesRaw.map(s => ({
@@ -136,6 +145,12 @@ export function getBoardData() {
         collapsed: Boolean(c.collapsed),
         belowOf: c.belowOf ?? null
     })); // Reason: Normalize SQLite integer to boolean for SSR-consistent rendering.
+
+    const dateColumns: DateColumn[] = dateColumnsRaw.map(d => ({
+        ...d,
+        collapsed: Boolean(d.collapsed),
+        belowOf: d.belowOf ?? null
+    }));
     
     const tasks: Task[] = tasksRaw.map(t => ({
         ...t,
@@ -144,7 +159,7 @@ export function getBoardData() {
         createdAt: t.createdAt ?? new Date().toISOString()
     }));
 
-    return { statuses, contexts, tasks };
+    return { statuses, contexts, tasks, dateColumns };
 }
 
 export function createTask(task: Task) {
@@ -175,29 +190,59 @@ export function createContext(context: Context) {
     return context;
 }
 
-export function updateColumnTitle(id: string, title: string, type: 'status' | 'context') {
+export function updateColumnTitle(id: string, title: string, type: 'status' | 'context' | 'date') {
     if (type === 'status') {
         db.prepare('UPDATE statuses SET title = ? WHERE id = ?').run(title, id);
-    } else {
+    } else if (type === 'context') {
         db.prepare('UPDATE contexts SET title = ? WHERE id = ?').run(title, id);
+    } else {
+        // Ensure date column exists before updating
+        ensureDateColumn(id);
+        db.prepare('UPDATE date_columns SET title = ? WHERE id = ?').run(title, id);
     }
 }
 
-export function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context') {
+export function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context' | 'date') {
     // Reason: Persist column collapse state per status/context.
     const value = collapsed ? 1 : 0;
     if (type === 'status') {
         db.prepare('UPDATE statuses SET collapsed = ? WHERE id = ?').run(value, id);
-    } else {
+    } else if (type === 'context') {
         db.prepare('UPDATE contexts SET collapsed = ? WHERE id = ?').run(value, id);
+    } else {
+        ensureDateColumn(id);
+        db.prepare('UPDATE date_columns SET collapsed = ? WHERE id = ?').run(value, id);
     }
 }
 
-export function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context') {
+export function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context' | 'date') {
     if (type === 'status') {
         db.prepare('UPDATE statuses SET belowOf = ? WHERE id = ?').run(belowOf, id);
-    } else {
+    } else if (type === 'context') {
         db.prepare('UPDATE contexts SET belowOf = ? WHERE id = ?').run(belowOf, id);
+    } else {
+        ensureDateColumn(id);
+        db.prepare('UPDATE date_columns SET belowOf = ? WHERE id = ?').run(belowOf, id);
+    }
+}
+
+export function reorderDateColumns(dateIds: string[]) {
+    const update = db.prepare('UPDATE date_columns SET "order" = ? WHERE id = ?');
+    const updateTransaction = db.transaction((ids: string[]) => {
+        ids.forEach((id, index) => {
+            ensureDateColumn(id);
+            update.run(index, id);
+        });
+    });
+    updateTransaction(dateIds);
+}
+
+function ensureDateColumn(id: string) {
+    const exists = db.prepare('SELECT COUNT(*) as count FROM date_columns WHERE id = ?').get(id) as { count: number };
+    if (!exists.count) {
+        const maxOrder = db.prepare('SELECT MAX("order") as max FROM date_columns').get() as { max: number };
+        const newOrder = (maxOrder.max || 0) + 1;
+        db.prepare('INSERT INTO date_columns (id, title, "order", collapsed, belowOf) VALUES (?, ?, ?, 0, NULL)').run(id, id, newOrder);
     }
 }
 

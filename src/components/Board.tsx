@@ -19,7 +19,7 @@ import {
     DropAnimation
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { ViewType, Task, Status, Context } from '@/lib/types';
+import { ViewType, Task, Status, Context, DateColumn } from '@/lib/types';
 import { Column } from './Column';
 import { TaskModal } from './TaskModal';
 import { IdeaModal } from './IdeaModal';
@@ -34,7 +34,8 @@ import {
     updateColumnBelowOf,
     moveTask,
     reorderStatuses,
-    reorderContexts 
+    reorderContexts,
+    reorderDateColumns
 } from '@/app/actions';
 
 const dropAnimation: DropAnimation = {
@@ -50,10 +51,11 @@ const dropAnimation: DropAnimation = {
 interface BoardProps {
     initialStatuses: Status[];
     initialContexts: Context[];
+    initialDateColumns: DateColumn[];
     initialTasks: Task[];
 }
 
-export function Board({ initialStatuses, initialContexts, initialTasks }: BoardProps) {
+export function Board({ initialStatuses, initialContexts, initialDateColumns, initialTasks }: BoardProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     
@@ -71,12 +73,15 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         initialContexts,
         (state, updatedContexts: Context[]) => updatedContexts
     );
+    const [optimisticDateColumns, setOptimisticDateColumns] = useOptimistic(
+        initialDateColumns,
+        (state, updatedDateColumns: DateColumn[]) => updatedDateColumns
+    );
     
     const currentView = (searchParams.get('view') as ViewType) || 'status';
     const isStatusView = currentView === 'status';
     const isDateView = currentView === 'date';
     const [isVertical, setIsVertical] = useState(false);
-    const [dateCollapsed, setDateCollapsed] = useState<Record<string, boolean>>({});
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
@@ -112,40 +117,53 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         if (isStatusView) return optimisticStatuses;
         if (isDateView) {
             // Group tasks by date for Date View
-            // We'll generate dynamic "columns" based on task dates
-            // Format: Today, Yesterday, Earlier (by date)
-            const dates = new Set<string>();
+            // We mix persistent date columns with dynamic ones derived from tasks
+            const taskDates = new Set<string>();
             optimisticTasks.forEach(t => {
                 if (t.createdAt) {
                     const date = new Date(t.createdAt).toISOString().split('T')[0];
-                    dates.add(date);
+                    taskDates.add(date);
                 }
             });
-            // Ensure Today and Yesterday exist if we want them always visible, 
-            // or just let them appear if there are tasks.
-            // For prototype: Add Today as a placeholder if empty? 
-            // Let's stick to actual data + Today if missing.
+
+            // Ensure today exists
             const today = new Date().toISOString().split('T')[0];
-            dates.add(today);
+            taskDates.add(today);
             
-            const sortedDates = Array.from(dates).sort((a, b) => b.localeCompare(a)); // Descending
+            // Map existing columns
+            const existingColumnsMap = new Map(optimisticDateColumns.map(c => [c.id, c]));
             
-            return sortedDates.map(date => {
-                const isToday = date === today;
-                const isYesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0] === date;
-                
-                let title = date;
-                if (isToday) title = `${date} (Today)`;
-                else if (isYesterday) title = `${date} (Yesterday)`;
-                
-                return {
-                    id: date,
-                    title: title,
-                    color: '#cccccc',
-                    collapsed: dateCollapsed[date] || false,
-                    belowOf: null
-                } as Status; // Treat as Status for compatibility
-            });
+            // Create a merged list
+            const allDateIds = Array.from(new Set([...Array.from(taskDates), ...optimisticDateColumns.map(c => c.id)]));
+            
+            // Sort: Priority to existing columns order, then new dates descending
+            // Actually, we should respect the order of existing columns, and put new ones at the beginning or end?
+            // For simplicity and robustness: 
+            // 1. Use existing columns in their order.
+            // 2. Append any new dates that are not in existing columns, sorted descending.
+            
+            const existingIds = new Set(optimisticDateColumns.map(c => c.id));
+            const newIds = allDateIds.filter(id => !existingIds.has(id)).sort((a, b) => b.localeCompare(a));
+            
+            const mergedColumns = [
+                ...optimisticDateColumns,
+                ...newIds.map(date => {
+                    const isToday = date === today;
+                    const isYesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0] === date;
+                    let title = date;
+                    if (isToday) title = `${date} (Today)`;
+                    else if (isYesterday) title = `${date} (Yesterday)`;
+
+                    return {
+                        id: date,
+                        title: title,
+                        collapsed: false,
+                        belowOf: null
+                    } as DateColumn;
+                })
+            ];
+
+            return mergedColumns as (Status | Context | DateColumn)[];
         }
         return optimisticContexts;
     })();
@@ -231,8 +249,9 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
     };
 
     const handleColumnTitleChange = async (id: string, newTitle: string) => {
-        if (isDateView) return; // Date columns cannot be renamed
-        if (isStatusView) {
+        if (isDateView) {
+            setOptimisticDateColumns(optimisticDateColumns.map(d => d.id === id ? { ...d, title: newTitle } : d));
+        } else if (isStatusView) {
             setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, title: newTitle } : s));
         } else {
             setOptimisticContexts(optimisticContexts.map(c => c.id === id ? { ...c, title: newTitle } : c));
@@ -242,11 +261,8 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
 
     const handleColumnCollapsedChange = async (id: string, nextCollapsed: boolean) => {
         if (isDateView) {
-            setDateCollapsed(prev => ({ ...prev, [id]: nextCollapsed }));
-            return;
-        }
-        // Reason: Optimistically update collapse state while persisting to DB.
-        if (isStatusView) {
+            setOptimisticDateColumns(optimisticDateColumns.map(d => d.id === id ? { ...d, collapsed: nextCollapsed } : d));
+        } else if (isStatusView) {
             setOptimisticStatuses(optimisticStatuses.map(s => s.id === id ? { ...s, collapsed: nextCollapsed } : s));
         } else {
             setOptimisticContexts(optimisticContexts.map(c => c.id === id ? { ...c, collapsed: nextCollapsed } : c));
@@ -482,6 +498,7 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         }
     };
 
+    // Reason: Handle column order change for drag and drop.
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveTask(null);
@@ -491,33 +508,29 @@ export function Board({ initialStatuses, initialContexts, initialTasks }: BoardP
         const activeId = active.id;
         const overId = over.id;
 
-        const activeType = active.data.current?.type;
-        if (activeType === 'Column') {
-            const columnIds = columns.map(c => c.id);
-            const oldIndex = columnIds.indexOf(activeId as string);
-            const newIndex = columnIds.indexOf(overId as string);
+        if (activeId === overId) return;
+
+        const isActiveColumn = active.data.current?.type === 'Column';
+        if (isActiveColumn) {
+            const oldIndex = columns.findIndex(c => c.id === activeId);
+            const newIndex = columns.findIndex(c => c.id === overId);
+            
             if (oldIndex === -1 || newIndex === -1) return;
-            const activeRect = active.rect.current?.translated ?? active.rect.current?.initial;
-            const overRect = over.rect;
-            const shouldPlaceBelow = activeRect && overRect
-                ? activeRect.top + activeRect.height / 2 > overRect.top + overRect.height * 0.55
-                : false;
-            const targetIndex = shouldPlaceBelow
-                ? (oldIndex < newIndex ? newIndex : newIndex + 1)
-                : newIndex;
-            const movedColumns = oldIndex !== targetIndex ? arrayMove(columns, oldIndex, targetIndex) : columns;
-            const updatedColumns = movedColumns.map(c =>
-                c.id === activeId ? { ...c, belowOf: shouldPlaceBelow ? (overId as string) : null } : c
-            );
+
+            // Create new columns array
+            const newColumns = arrayMove(columns, oldIndex, newIndex);
+
             startTransition(async () => {
-                if (isStatusView) {
-                    setOptimisticStatuses(updatedColumns as Status[]);
-                    await reorderStatuses(updatedColumns.map(c => c.id));
+                if (isDateView) {
+                    setOptimisticDateColumns(newColumns as DateColumn[]);
+                    await reorderDateColumns(newColumns.map(c => c.id));
+                } else if (isStatusView) {
+                    setOptimisticStatuses(newColumns as Status[]);
+                    await reorderStatuses(newColumns.map(c => c.id));
                 } else {
-                    setOptimisticContexts(updatedColumns as Context[]);
-                    await reorderContexts(updatedColumns.map(c => c.id));
+                    setOptimisticContexts(newColumns as Context[]);
+                    await reorderContexts(newColumns.map(c => c.id));
                 }
-                await updateColumnBelowOf(activeId as string, shouldPlaceBelow ? (overId as string) : null, currentView);
             });
             return;
         }

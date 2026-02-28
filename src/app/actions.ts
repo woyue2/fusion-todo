@@ -12,7 +12,8 @@ import {
     updateColumnBelowOf as dbUpdateColumnBelowOf,
     reorderTasks as dbReorderTasks,
     reorderStatuses as dbReorderStatuses,
-    reorderContexts as dbReorderContexts
+    reorderContexts as dbReorderContexts,
+    reorderDateColumns as dbReorderDateColumns
 } from '@/lib/db';
 import { Task, Context } from '@/lib/types';
 
@@ -73,20 +74,17 @@ export async function addContext() {
 }
 
 export async function updateColumn(id: string, title: string, type: 'status' | 'context' | 'date') {
-    if (type === 'date') return;
     dbUpdateColumnTitle(id, title, type);
     revalidatePath('/');
 }
 
 export async function updateColumnCollapsed(id: string, collapsed: boolean, type: 'status' | 'context' | 'date') {
-    if (type === 'date') return;
     // Reason: Persist column collapse state changes from the client.
     dbUpdateColumnCollapsed(id, collapsed, type);
     revalidatePath('/');
 }
 
 export async function updateColumnBelowOf(id: string, belowOf: string | null, type: 'status' | 'context' | 'date') {
-    if (type === 'date') return;
     dbUpdateColumnBelowOf(id, belowOf, type);
     revalidatePath('/');
 }
@@ -114,5 +112,10 @@ export async function reorderStatuses(statusIds: string[]) {
 export async function reorderContexts(contextIds: string[]) {
     // Reason: Persist context column order after desktop column drag.
     dbReorderContexts(contextIds);
+    revalidatePath('/');
+}
+
+export async function reorderDateColumns(dateIds: string[]) {
+    dbReorderDateColumns(dateIds);
     revalidatePath('/');
 }

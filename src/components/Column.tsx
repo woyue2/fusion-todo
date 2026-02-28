@@ -86,9 +86,8 @@ export function Column({
                 <input 
                     type="text" 
                     value={column.title}
-                    readOnly={isDateView}
-                    onChange={(e) => !isDateView && onTitleChange(column.id, e.target.value)}
-                    className={`font-semibold text-[#172b4d] bg-transparent rounded p-1 text-[0.95rem] w-full ${isDateView ? 'cursor-default' : 'border-2 border-transparent cursor-pointer focus:bg-white focus:border-[#0079bf] focus:outline-none focus:cursor-text'}`}
+                    onChange={(e) => onTitleChange(column.id, e.target.value)}
+                    className="font-semibold text-[#172b4d] bg-transparent border-2 border-transparent rounded p-1 text-[0.95rem] w-full cursor-pointer focus:bg-white focus:border-[#0079bf] focus:outline-none focus:cursor-text"
                 />
             </div>
             <button
@@ -99,61 +98,59 @@ export function Column({
                 {isCollapsed ? '展开' : '折叠'}
             </button> {/* Reason: Provide explicit collapse/expand control in the column header. */}
             
-            {!isDateView && (
-                <div className="relative flex items-center"> {/* Reason: 提供动作面板的定位容器 */}
-                    <button
-                        type="button"
-                        aria-expanded={actionsOpen}
-                        onClick={() => setActionsOpen(!actionsOpen)}
-                        className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
-                        title="更多动作"
-                    >
-                        ···
-                    </button>
-                    {actionsOpen && (
-                        <div className="absolute top-full right-0 mt-1 bg-white rounded shadow-md border border-[#dfe1e6] p-1 flex items-center gap-1 z-10">
-                            <button
-                                type="button"
-                                onClick={() => onMoveAbove(column.id)}
-                                disabled={!canMoveAbove}
-                                className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveAbove ? '' : 'opacity-40 cursor-not-allowed'}`}
-                                title={canMoveAbove ? '移到左侧邻列上方或解除堆叠' : '不可用'}
-                            >
-                                ↥
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onMoveBelow(column.id)}
-                                disabled={!canMoveBelow}
-                                className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveBelow ? '' : 'opacity-40 cursor-not-allowed'}`}
-                                title={canMoveBelow ? '移到左侧邻列下方' : '不可用'}
-                            >
-                                ↧
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onMoveLeft(column.id)}
-                                disabled={!canMoveLeft}
-                                className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveLeft ? '' : 'opacity-40 cursor-not-allowed'}`}
-                                title={canMoveLeft ? '向左移动（仅锚列）' : '不可用'}
-                            >
-                                ←
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onMoveRight(column.id)}
-                                disabled={!canMoveRight}
-                                className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveRight ? '' : 'opacity-40 cursor-not-allowed'}`}
-                                title={canMoveRight ? '向右移动（仅锚列）' : '不可用'}
-                            >
-                                →
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+            <div className="relative flex items-center"> {/* Reason: 提供动作面板的定位容器 */}
+                <button
+                    type="button"
+                    aria-expanded={actionsOpen}
+                    onClick={() => setActionsOpen(!actionsOpen)}
+                    className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
+                    title="更多动作"
+                >
+                    ···
+                </button>
+                {actionsOpen && (
+                    <div className="absolute top-full right-0 mt-1 bg-white rounded shadow-md border border-[#dfe1e6] p-1 flex items-center gap-1 z-10">
+                        <button
+                            type="button"
+                            onClick={() => onMoveAbove(column.id)}
+                            disabled={!canMoveAbove}
+                            className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveAbove ? '' : 'opacity-40 cursor-not-allowed'}`}
+                            title={canMoveAbove ? '移到左侧邻列上方或解除堆叠' : '不可用'}
+                        >
+                            ↥
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onMoveBelow(column.id)}
+                            disabled={!canMoveBelow}
+                            className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveBelow ? '' : 'opacity-40 cursor-not-allowed'}`}
+                            title={canMoveBelow ? '移到左侧邻列下方' : '不可用'}
+                        >
+                            ↧
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onMoveLeft(column.id)}
+                            disabled={!canMoveLeft}
+                            className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveLeft ? '' : 'opacity-40 cursor-not-allowed'}`}
+                            title={canMoveLeft ? '向左移动（仅锚列）' : '不可用'}
+                        >
+                            ←
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onMoveRight(column.id)}
+                            disabled={!canMoveRight}
+                            className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveRight ? '' : 'opacity-40 cursor-not-allowed'}`}
+                            title={canMoveRight ? '向右移动（仅锚列）' : '不可用'}
+                        >
+                            →
+                        </button>
+                    </div>
+                )}
+            </div>
 
-            {isColumnDragEnabled && !isDateView && (
+            {isColumnDragEnabled && (
                 <button
                     type="button"
                     {...attributes}
