@@ -41,3 +41,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.trae/rules/analyze-problem.md
+.trae/rules/ses-diff-ways.md
+.trae/rules/update-code.md
+.trae/rules/update-git.md
+.trae/skills/analyze/SKILL.md
+playground/date-view.html
+playground/icon-design-system.html
+playground/idea-modal.html
+docs/plan.md
