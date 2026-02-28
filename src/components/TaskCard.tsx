@@ -85,7 +85,13 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
       )}
       
       <div className={`flex justify-between items-start gap-2 mb-1.5 ${isStatusView && contextColor ? 'mt-1' : ''}`}>
-        <span className="text-[0.95rem] text-[#172b4d] font-medium leading-snug break-words" style={titleStyle}>
+        <span 
+          className="text-[0.95rem] text-[#172b4d] font-medium leading-snug break-words"
+          style={{ 
+            ...titleStyle, 
+            whiteSpace: 'pre-line' // Reason: Preserve user-entered newlines from textarea in display without changing data layer.
+          }}
+        >
           {task.title}
         </span>
       </div>
