@@ -243,10 +243,11 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         const newTask: Task = {
             id: tempId,
             title: 'New Task',
-            status: isStatusView ? columnId : 'todo',
-            context: isStatusView ? 'c1' : columnId,
+            status: isStatusView ? columnId : 'todo', // Reason: 非状态视图新增任务默认进入 todo。
+            context: isStatusView ? 'c1' : (isDateView ? 'c1' : columnId), // Reason: 日期视图不使用 context 作为列归属。
             tags: [],
-            color: '#ffffff'
+            color: '#ffffff',
+            createdAt: isDateView ? `${columnId}T00:00:00.000Z` : new Date().toISOString() // Reason: 日期视图用列日期作为 createdAt 归属（假设列ID为 YYYY-MM-DD）。
         };
         
         startTransition(async () => {

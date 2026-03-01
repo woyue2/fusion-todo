@@ -33,11 +33,11 @@ export async function addTask(columnId: string, viewType: 'status' | 'context' |
         id: `t${Date.now()}`,
         title: 'New Task',
         // 根据当前视图类型，决定任务初始的 status 和 context
-        status: viewType === 'status' ? columnId : 'todo',
-        context: viewType === 'status' ? 'c1' : (viewType === 'date' ? 'c1' : columnId),
+        status: viewType === 'status' ? columnId : 'todo', // Reason: 非状态视图新增任务默认进入 todo。
+        context: viewType === 'status' ? 'c1' : (viewType === 'date' ? 'c1' : columnId), // Reason: 日期视图不使用 context 作为列归属。
         tags: [],
         color: '#ffffff',
-        createdAt: new Date().toISOString()
+        createdAt: viewType === 'date' ? `${columnId}T00:00:00.000Z` : new Date().toISOString() // Reason: 日期视图用列日期作为 createdAt 归属（假设列ID为 YYYY-MM-DD）。
     };
     // 5. 写入数据库
     dbCreateTask(newTask);
