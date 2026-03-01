@@ -39,23 +39,28 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
   });
 
   // 3. 计算拖拽时的样式（位移、透明度等）
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1, // 拖拽时半透明
-    backgroundColor: task.color || '#ffffff',
-  };
-
   const isStatusView = viewType === 'status';
+  const isWhenFree = task.status === 'when-free';
   
   // 4. 定义状态颜色映射（用于卡片左侧边框）
   const statusColors: Record<string, string> = {
     todo: 'var(--status-todo)',
     doing: 'var(--status-doing)',
     done: 'var(--status-done)',
-    'when-free': 'var(--status-when-free)', // 新增 When Free 状态颜色
+    'when-free': 'var(--status-when-free-border)', // 新增 When Free 状态颜色
   };
   const statusColor = statusColors[task.status] || '#dfe1e6';
+
+  // 4.1 计算 When Free 的淡化样式
+  const cardBackground = isWhenFree ? 'var(--status-when-free-bg)' : (task.color || 'var(--card-bg)');
+
+  // 3. 计算拖拽时的样式（位移、透明度等）
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : (isWhenFree ? 'var(--status-when-free-opacity)' : 1), // 拖拽时半透明
+    backgroundColor: cardBackground,
+  };
   
   // 5. 获取 Context 信息（用于显示 Context 颜色条）
   const contextObj = contexts.find(c => c.id === task.context);
@@ -63,7 +68,9 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
 
   // 6. 已完成任务的样式（删除线）
   const isDone = task.status === 'done';
-  const titleStyle = isDone ? { textDecoration: 'line-through', color: '#888' } : {};
+  const titleStyle = isDone
+    ? { textDecoration: 'line-through', color: '#888' }
+    : (isWhenFree ? { color: 'var(--status-when-free-text)' } : {});
   
   // 7. 组合边框样式
   const borderStyle: React.CSSProperties = {
