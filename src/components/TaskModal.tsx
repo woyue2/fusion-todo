@@ -41,7 +41,7 @@ export function TaskModal({ task, statuses, contexts, onSave, onDelete, onClose 
         {/* Header: 标题与关闭按钮 */}
         <div className="flex justify-between items-center">
             <span className="text-xl font-bold text-[#172b4d]">Edit Task</span>
-            <button onClick={onClose} className="text-2xl text-[#999] hover:text-[#172b4d] bg-transparent border-none cursor-pointer">×</button>
+            <button onClick={onClose} aria-label="关闭" className="text-2xl text-[#999] hover:text-[#172b4d] bg-transparent border-none cursor-pointer">×</button>
         </div>
 
         {/* 6. 任务描述编辑框 */}

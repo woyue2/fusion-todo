@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // Reason: Control action panel visibility to avoid title被遮挡
+import React from 'react'; // Reason: Control action panel visibility to avoid title被遮挡
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Task, ViewType, Status, Context } from '@/lib/types';
@@ -118,7 +118,7 @@ export function Column({
             <button
                 type="button"
                 onClick={() => onToggleCollapsed(column.id, !isCollapsed)}
-
+                aria-label={isCollapsed ? '展开列' : '折叠列'}
                 className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
             >
                 {isCollapsed ? '展开' : '折叠'}
@@ -128,6 +128,7 @@ export function Column({
                 <button
                     type="button"
                     aria-expanded={isActionOpen}
+                    aria-label="列动作"
                     onClick={onToggleAction}
                     className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-pointer shrink-0"
                     title="更多动作"
@@ -140,6 +141,7 @@ export function Column({
                             type="button"
                             onClick={() => onMoveAbove(column.id)}
                             disabled={!canMoveAbove}
+                            aria-label="上移或解除堆叠"
                             className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveAbove ? '' : 'opacity-40 cursor-not-allowed'}`}
                             title={canMoveAbove ? '移到左侧邻列上方或解除堆叠' : '不可用'}
                         >
@@ -149,6 +151,7 @@ export function Column({
                             type="button"
                             onClick={() => onMoveBelow(column.id)}
                             disabled={!canMoveBelow}
+                            aria-label="下移到左侧邻列"
                             className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveBelow ? '' : 'opacity-40 cursor-not-allowed'}`}
                             title={canMoveBelow ? '移到左侧邻列下方' : '不可用'}
                         >
@@ -158,6 +161,7 @@ export function Column({
                             type="button"
                             onClick={() => onMoveLeft(column.id)}
                             disabled={!canMoveLeft}
+                            aria-label="向左移动"
                             className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveLeft ? '' : 'opacity-40 cursor-not-allowed'}`}
                             title={canMoveLeft ? '向左移动（仅锚列）' : '不可用'}
                         >
@@ -167,6 +171,7 @@ export function Column({
                             type="button"
                             onClick={() => onMoveRight(column.id)}
                             disabled={!canMoveRight}
+                            aria-label="向右移动"
                             className={`px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] ${canMoveRight ? '' : 'opacity-40 cursor-not-allowed'}`}
                             title={canMoveRight ? '向右移动（仅锚列）' : '不可用'}
                         >
@@ -181,6 +186,7 @@ export function Column({
                                 onDeleteContext(column.id);
                               }
                             }}
+                            aria-label="删除列表"
                             className="px-2 py-1 rounded text-[#eb5a46] hover:bg-[#eb5a46]/10"
                             title="删除列表（包含该列表下的所有任务）"
                           >
@@ -196,6 +202,7 @@ export function Column({
                     type="button"
                     {...attributes}
                     {...listeners}
+                    aria-label="拖拽列"
                     className="ml-2 px-2 py-1 rounded text-[#5e6c84] hover:bg-[#091e4214] cursor-grab active:cursor-grabbing"
                 >
                     ≡
@@ -227,6 +234,7 @@ export function Column({
                 {/* Add Button */}
                 <button 
                     onClick={() => onAddTask(column.id)}
+                    aria-label="添加卡片"
                     className="mt-2 text-[#5e6c84] p-2 text-left rounded cursor-pointer flex items-center gap-1.5 hover:bg-[#091e4214] hover:text-[#172b4d] shrink-0"
                 >
                     <span>+</span> Add card

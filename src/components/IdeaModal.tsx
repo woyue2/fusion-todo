@@ -75,7 +75,7 @@ export function IdeaModal({ contexts, onSave, onClose }: IdeaModalProps) {
             <h2 className="text-lg font-bold text-[#172b4d] flex items-center gap-2">
                 <span>💡</span> 记录新想法
             </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+            <button onClick={onClose} aria-label="关闭" className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
 
         {/* Body */}
