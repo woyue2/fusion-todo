@@ -91,7 +91,6 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
     const isDateView = currentView === 'date';
 
     // 4. 组件内部状态
-    const [isVertical, setIsVertical] = useState(false); // 是否垂直布局
     const [activeTask, setActiveTask] = useState<Task | null>(null); // 当前正在拖拽的任务
     const [editingTask, setEditingTask] = useState<Task | null>(null); // 当前正在编辑的任务（打开 Modal）
     const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false); // 是否打开新建 Idea 弹窗
@@ -158,9 +157,6 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
             const today = new Date().toISOString().split('T')[0];
             taskDates.add(today);
             
-            // Map existing columns
-            const existingColumnsMap = new Map(optimisticDateColumns.map(c => [c.id, c]));
-            
             // Create a merged list
             const allDateIds = Array.from(new Set([...Array.from(taskDates), ...optimisticDateColumns.map(c => c.id)]));
             
@@ -195,7 +191,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
         }
         return optimisticContexts;
     })();
-    const isColumnDragEnabled = isDesktopDragEnabled && !isVertical; // Reason: Only allow left-right column drag on desktop in horizontal layout.
+    const isColumnDragEnabled = isDesktopDragEnabled; // Reason: Only allow left-right column drag on desktop in horizontal layout.
     const columnOrderIndex = new Map(columns.map((c, index) => [c.id, index]));
     const columnsById = new Map(columns.map(c => [c.id, c]));
     const childrenByParent = new Map<string, (Status | Context)[]>();
@@ -657,7 +653,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
-                <div className={`flex-1 flex gap-3 pb-3 items-start ${isVertical ? 'flex-col overflow-y-auto overflow-x-hidden' : 'overflow-x-auto'}`}> {/* Reason: 保留横向滚动；移除 overflow-y-hidden 让纵向溢出由页面承载 */}
+                <div className="flex-1 flex gap-3 pb-3 items-start overflow-x-auto"> {/* Reason: 保留横向滚动；移除 overflow-y-hidden 让纵向溢出由页面承载 */}
                     {/* Reason: Wrap columns in a horizontal SortableContext to support left-right drag on desktop. */}
                     <SortableContext items={columns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
                         {stacks.map(stack => {
@@ -690,7 +686,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                                         canMoveBelow={hasLeftAnchor} // Reason: Disable when no left anchor exists.
                                         canMoveLeft={isAnchor && hasLeftAnchor} // Reason: Only anchors can move horizontally.
                                         canMoveRight={isAnchor && hasRightAnchor} // Reason: Only anchors can move horizontally.
-                                        className={isVertical ? 'w-full flex-none' : 'flex-none w-[300px]'}
+                                        className="flex-none w-[300px]"
                                         isColumnDragEnabled={isColumnDragEnabled}
                                         isActionOpen={activeActionColumnId === col.id}
                                         onToggleAction={() => setActiveActionColumnId(activeActionColumnId === col.id ? null : col.id)}
@@ -706,7 +702,7 @@ export function Board({ initialStatuses, initialContexts, initialDateColumns, in
                     {!isStatusView && !isDateView && (
                         <button 
                             onClick={handleAddColumn}
-                            className={`flex justify-center items-center bg-white/50 border-2 border-dashed border-[#ccc] rounded-lg text-[#5e6c84] font-medium cursor-pointer hover:bg-white/80 hover:border-[#0079bf] hover:text-[#0079bf] transition-all shrink-0 ${isVertical ? 'w-full h-[60px]' : 'w-[300px] h-[50px]'}`}
+                            className="flex justify-center items-center bg-white/50 border-2 border-dashed border-[#ccc] rounded-lg text-[#5e6c84] font-medium cursor-pointer hover:bg-white/80 hover:border-[#0079bf] hover:text-[#0079bf] transition-all shrink-0 w-[300px] h-[50px]"
                         >
                             + Add List
                         </button>
