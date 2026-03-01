@@ -50,10 +50,10 @@ export function TaskCard({ task, viewType, contexts, onEdit, onStatusChange }: T
   
   // 4. 定义状态颜色映射（用于卡片左侧边框）
   const statusColors: Record<string, string> = {
-    todo: '#dfe1e6',
-    doing: '#0079bf',
-    done: '#61bd4f',
-    'when-free': '#9e9e9e', // 新增 When Free 状态颜色
+    todo: 'var(--status-todo)',
+    doing: 'var(--status-doing)',
+    done: 'var(--status-done)',
+    'when-free': 'var(--status-when-free)', // 新增 When Free 状态颜色
   };
   const statusColor = statusColors[task.status] || '#dfe1e6';
   

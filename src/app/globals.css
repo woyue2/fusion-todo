@@ -9,6 +9,10 @@
   --accent-color: #0079bf;
   --danger-color: #eb5a46;
   --success-color: #61bd4f;
+  --status-todo: #dfe1e6;
+  --status-doing: #0079bf;
+  --status-done: #61bd4f;
+  --status-when-free: #9e9e9e;
   --border-radius: 8px;
   --shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
 }
